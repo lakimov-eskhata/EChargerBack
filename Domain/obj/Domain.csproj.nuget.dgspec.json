@@ -21,9 +21,7 @@
         ],
         "sources": {
           "C:\\Users\\A_Lakimov\\Documents\\NugetPackage": {},
-          "http://10.10.2.214:8111/httpAuth/app/nuget/feed/EskhataMerchant_Test_EskhataMerchantIntegrationEvent/EskahatMerchantIntegrationEvent/v3/index.json": {},
-          "https://api.nuget.org/v3/index.json": {},
-          "https://nuget.pkg.github.com/Eskhata-Digital/index.json": {}
+          "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {

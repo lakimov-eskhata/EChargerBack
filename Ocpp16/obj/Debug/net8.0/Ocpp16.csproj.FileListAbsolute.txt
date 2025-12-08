@@ -17,3 +17,23 @@ D:\projects\aspnet\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.dll
 D:\projects\aspnet\EChargerBack\Ocpp16\obj\Debug\net8.0\refint\Ocpp16.dll
 D:\projects\aspnet\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.pdb
 D:\projects\aspnet\EChargerBack\Ocpp16\obj\Debug\net8.0\ref\Ocpp16.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\refint\Ocpp16.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.pdb
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\bin\Debug\net8.0\Ocpp16.deps.json
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\bin\Debug\net8.0\Ocpp16.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\bin\Debug\net8.0\Ocpp16.pdb
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\bin\Debug\net8.0\Application.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\bin\Debug\net8.0\Domain.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\bin\Debug\net8.0\Infrastructure.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\bin\Debug\net8.0\Application.pdb
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\bin\Debug\net8.0\Domain.pdb
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\bin\Debug\net8.0\Infrastructure.pdb
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.csproj.AssemblyReference.cache
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.GeneratedMSBuildEditorConfig.editorconfig
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.AssemblyInfoInputs.cache
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.AssemblyInfo.cs
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.csproj.CoreCompileInputs.cache
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.sourcelink.json
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\Ocpp16.csproj.Up2Date
+D:\projects\aspnet\Ocpp projects\EChargerBack\Ocpp16\obj\Debug\net8.0\ref\Ocpp16.dll

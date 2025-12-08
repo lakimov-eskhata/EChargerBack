@@ -1,8 +1,4 @@
-﻿using Application.Common;
-using Application.Common.Interfaces;
-using Application.Features.Command.ProcessBootNotification;
-
-namespace WebApi.Endpoints.Endpoints;
+﻿namespace WebApi.Endpoints.Endpoints;
 
 public static class PaymentEndpoints
 {
@@ -10,12 +6,7 @@ public static class PaymentEndpoints
     {
         var group = app.MapGroup("/payments");
 
-        group.MapPost("/", async (ProcessBootNotificationCommand request, IMediatorHandler  mediator) =>
-            {
-                var result = await mediator.Send(request);
-                return Results.Ok(result);
-            })
-            .AddEndpointFilter<CustomAuthorizationFilter>();
+        group.MapGet("/", () => Results.Ok("payments endpoint not yet implemented"));
 
         // group.MapGet("/", async (ISender sender) =>
         // {

@@ -17,22 +17,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using Application.Common.Interfaces;
+using Application.Common.Models;
+using ChargeTag = Domain.Entities.Station.ChargeTagEntity;
+using Transaction = Domain.Entities.Station.TransactionEntity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using OCPP.Core.Database;
 using OCPP.Core.Server.Messages_OCPP20;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Application.Common.Interfaces;
-using Application.Common.Models;
 
 namespace OCPP.Core.Server
 {
     public partial class ControllerOCPP20
     {
-        public string HandleTransactionEvent(OCPPMessage msgIn, OCPPMessage msgOut, OCPPMiddleware ocppMiddleware)
+        public async Task<string> HandleTransactionEvent(OCPPMessage msgIn, OCPPMessage msgOut, OCPPMiddleware ocppMiddleware)
         {
             string errorCode = null;
             TransactionEventResponse transactionEventResponse = new TransactionEventResponse();
@@ -82,7 +84,7 @@ namespace OCPP.Core.Server
                         #region Start Transaction
                         bool denyConcurrentTx = Configuration.GetValue<bool>("DenyConcurrentTx", false);
 
-                        transactionEventResponse.IdTokenInfo = InternalAuthorize(idTag, ocppMiddleware, connectorId, AuthAction.StartTransaction, transactionEventRequest.TransactionInfo.TransactionId, string.Empty, denyConcurrentTx);
+                        transactionEventResponse.IdTokenInfo = await InternalAuthorize(idTag, ocppMiddleware, connectorId, AuthAction.StartTransaction, transactionEventRequest.TransactionInfo.TransactionId, string.Empty, denyConcurrentTx);
 
                         Logger.LogInformation("StartTransaction => Charge tag='{0}' => Status: {1}", idTag, transactionEventResponse.IdTokenInfo.Status);
 
@@ -102,9 +104,9 @@ namespace OCPP.Core.Server
                                 transaction.StartTime = transactionEventRequest.Timestamp.UtcDateTime;
                                 transaction.MeterStart = meterKWH;
                                 transaction.StartResult = transactionEventRequest.TriggerReason.ToString();
-                                DbContext.Add<Transaction>(transaction);
+                                await _dbContext.AddAsync(transaction);
 
-                                DbContext.SaveChanges();
+                                await _dbContext.SaveChangesAsync();
                             }
                             catch (Exception exp)
                             {
@@ -127,10 +129,10 @@ namespace OCPP.Core.Server
                     try
                     {
                         #region Update Transaction
-                        Transaction transaction = DbContext.Transactions
+                        Transaction transaction = await _dbContext.Transactions
                             .Where(t => t.Uid == transactionEventRequest.TransactionInfo.TransactionId)
                             .OrderByDescending(t => t.TransactionId)
-                            .FirstOrDefault();
+                            .FirstOrDefaultAsync();
 
                         if (transaction != null &&
                             transaction.ChargePointId == ChargePointStatus.Id &&
@@ -141,7 +143,7 @@ namespace OCPP.Core.Server
                             {
                                 Logger.LogInformation("UpdateTransaction => Meter='{0}' (kWh)", meterKWH);
                                 transaction.MeterStop = meterKWH;
-                                DbContext.SaveChanges();
+                                await _dbContext.SaveChangesAsync();
                             }
                         }
                         else
@@ -165,10 +167,10 @@ namespace OCPP.Core.Server
                     {
                         #region End Transaction
 
-                        Transaction transaction = DbContext.Transactions
+                        Transaction transaction = await _dbContext.Transactions
                             .Where(t => t.Uid == transactionEventRequest.TransactionInfo.TransactionId)
                             .OrderByDescending(t => t.TransactionId)
-                            .FirstOrDefault();
+                            .FirstOrDefaultAsync();
 
                         if (transaction != null &&
                             transaction.ChargePointId == ChargePointStatus.Id &&
@@ -183,7 +185,7 @@ namespace OCPP.Core.Server
                             }
                             else
                             {
-                                transactionEventResponse.IdTokenInfo = InternalAuthorize(idTag, ocppMiddleware, connectorId, AuthAction.StopTransaction, transactionEventRequest.TransactionInfo.TransactionId, transaction.StartTagId, false);
+                                transactionEventResponse.IdTokenInfo = await InternalAuthorize(idTag, ocppMiddleware, connectorId, AuthAction.StopTransaction, transactionEventRequest.TransactionInfo.TransactionId, transaction.StartTagId, false);
                             }
                         }
                         else
@@ -224,7 +226,7 @@ namespace OCPP.Core.Server
                                     if (!transaction.StartTagId.Equals(idTag, StringComparison.InvariantCultureIgnoreCase))
                                     {
                                         // tags are different => same group?
-                                        ChargeTag startTag = DbContext.Find<ChargeTag>(transaction.StartTagId);
+                                        ChargeTag startTag = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == transaction.StartTagId);
                                         if (startTag != null)
                                         {
                                             if (!string.Equals(startTag.ParentTagId, transactionEventResponse.IdTokenInfo.GroupIdToken?.IdToken, StringComparison.InvariantCultureIgnoreCase))
@@ -254,7 +256,7 @@ namespace OCPP.Core.Server
                                         transaction.MeterStop = meterKWH;
                                         transaction.StopTagId = idTag;
                                         transaction.StopReason = transactionEventRequest.TriggerReason.ToString();
-                                        DbContext.SaveChanges();
+                                        await _dbContext.SaveChangesAsync();
                                     }
                                 }
                                 else
@@ -393,7 +395,7 @@ namespace OCPP.Core.Server
         /// <summary>
         /// Authorization logic for reuseability
         /// </summary>
-        internal IdTokenInfoType InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware, int connectorId, AuthAction authAction, string transactionUid, string transactionStartId, bool denyConcurrentTx)
+        internal async Task<IdTokenInfoType> InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware, int connectorId, AuthAction authAction, string transactionUid, string transactionStartId, bool denyConcurrentTx)
         {
             IdTokenInfoType idTokenInfo = new IdTokenInfoType();
 
@@ -423,7 +425,7 @@ namespace OCPP.Core.Server
             {
                 try
                 {
-                    ChargeTag ct = DbContext.Find<ChargeTag>(idTag);
+                    ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
                     if (ct != null)
                     {
                         if (!string.IsNullOrWhiteSpace(ct.ParentTagId))
@@ -446,10 +448,10 @@ namespace OCPP.Core.Server
                             if (denyConcurrentTx)
                             {
                                 // Check that no open transaction with this idTag exists
-                                Transaction tx = DbContext.Transactions
+                                Transaction tx = await _dbContext.Transactions
                                     .Where(t => !t.StopTime.HasValue && t.StartTagId == ct.TagId)
                                     .OrderByDescending(t => t.TransactionId)
-                                    .FirstOrDefault();
+                                    .FirstOrDefaultAsync();
 
                                 if (tx != null)
                                 {

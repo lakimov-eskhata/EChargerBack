@@ -9,3 +9,15 @@ D:\projects\aspnet\EChargerBack\Domain\obj\Debug\net8.0\Domain.dll
 D:\projects\aspnet\EChargerBack\Domain\obj\Debug\net8.0\refint\Domain.dll
 D:\projects\aspnet\EChargerBack\Domain\obj\Debug\net8.0\Domain.pdb
 D:\projects\aspnet\EChargerBack\Domain\obj\Debug\net8.0\ref\Domain.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\bin\Debug\net8.0\Domain.deps.json
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\bin\Debug\net8.0\Domain.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\bin\Debug\net8.0\Domain.pdb
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\obj\Debug\net8.0\Domain.GeneratedMSBuildEditorConfig.editorconfig
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\obj\Debug\net8.0\Domain.AssemblyInfoInputs.cache
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\obj\Debug\net8.0\Domain.AssemblyInfo.cs
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\obj\Debug\net8.0\Domain.csproj.CoreCompileInputs.cache
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\obj\Debug\net8.0\Domain.sourcelink.json
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\obj\Debug\net8.0\Domain.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\obj\Debug\net8.0\refint\Domain.dll
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\obj\Debug\net8.0\Domain.pdb
+D:\projects\aspnet\Ocpp projects\EChargerBack\Domain\obj\Debug\net8.0\ref\Domain.dll

@@ -30,8 +30,8 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Application.Common.Models;
+using Infrastructure;
 using OCPP.Core.Server.Messages_OCPP20;
-using OCPP.Core.Database;
 
 namespace OCPP.Core.Server
 {
@@ -98,7 +98,7 @@ namespace OCPP.Core.Server
                                     if (msgIn.MessageType == "2")
                                     {
                                         // Request from chargepoint to OCPP server
-                                        OCPPMessage msgOut = controller20.ProcessRequest(msgIn, this);
+                                        OCPPMessage msgOut = await controller20.ProcessRequest(msgIn, this);
 
                                         // Send OCPP message with optional logging/dump
                                         await SendOcpp20Message(msgOut, logger, chargePointStatus);
@@ -399,7 +399,7 @@ namespace OCPP.Core.Server
             string apiResult = string.Empty;
 
             // Use Authorize logic to check idTag
-            IdTokenInfoType idTokenInfo = controller20.InternalAuthorize(idTag, this);
+            IdTokenInfoType idTokenInfo = await controller20.InternalAuthorize(idTag, this);
             if (idTokenInfo.Status == AuthorizationStatusEnumType.Accepted)
             {
                 // Valid idTag => send request to charge point

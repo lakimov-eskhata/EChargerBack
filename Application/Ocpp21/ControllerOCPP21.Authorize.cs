@@ -17,22 +17,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using Application.Common.Interfaces;
+using Application.Common.Models;
+using ChargeTag = Domain.Entities.Station.ChargeTagEntity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using OCPP.Core.Server.Messages_OCPP21;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Application.Common.Interfaces;
-using Application.Common.Models;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using OCPP.Core.Database;
-using OCPP.Core.Server.Messages_OCPP21;
 
 namespace OCPP.Core.Server
 {
     public partial class ControllerOCPP21
     {
-        public string HandleAuthorize(OCPPMessage msgIn, OCPPMessage msgOut, OCPPMiddleware ocppMiddleware)
+        public async Task<string> HandleAuthorize(OCPPMessage msgIn, OCPPMessage msgOut, OCPPMiddleware ocppMiddleware)
         {
             string errorCode = null;
             AuthorizeResponse authorizeResponse = new AuthorizeResponse();
@@ -76,7 +77,7 @@ namespace OCPP.Core.Server
                 {
                     try
                     {
-                        ChargeTag ct = DbContext.Find<ChargeTag>(idTag);
+                        ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
                         if (ct != null)
                         {
                             if (!string.IsNullOrEmpty(ct.ParentTagId))
@@ -128,7 +129,7 @@ namespace OCPP.Core.Server
         /// <summary>
         /// Authorization logic for reuseability
         /// </summary>
-        internal IdTokenInfoType InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware)
+        internal async Task<IdTokenInfoType> InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware)
         {
             IdTokenInfoType idTagInfo = new IdTokenInfoType();
             bool? externalAuthResult = null;
@@ -157,7 +158,7 @@ namespace OCPP.Core.Server
             {
                 try
                 {
-                    ChargeTag ct = DbContext.Find<ChargeTag>(idTag);
+                    ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
                     if (ct != null)
                     {
                         if (!string.IsNullOrEmpty(ct.ParentTagId))

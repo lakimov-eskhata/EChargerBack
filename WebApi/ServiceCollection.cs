@@ -1,6 +1,5 @@
 ﻿using Application.Common;
 using Application.Common.Interfaces;
-using EChargerBackend;
 using Ocpp16;
 
 namespace WebApi;
@@ -9,11 +8,6 @@ public static class ServiceCollection
 {
     public static IServiceCollection AddWebApi(this IServiceCollection services, IConfiguration configuration)
     {
-        // Регистрируем WebSocket и OCPP поддержку
-        services.AddSimpleR();
-
-        services.AddHttpContextAccessor();
-
         // Регистрируем WebSocket и OCPP поддержку
         services.AddHttpContextAccessor();
         

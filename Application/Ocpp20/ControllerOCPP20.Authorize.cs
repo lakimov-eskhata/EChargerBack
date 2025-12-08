@@ -17,19 +17,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using OCPP.Core.Database;
-using OCPP.Core.Server.Messages_OCPP20;
-using System;
 using Application.Common.Interfaces;
 using Application.Common.Models;
+using ChargeTag = Domain.Entities.Station.ChargeTagEntity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using OCPP.Core.Server.Messages_OCPP20;
+using System;
 
 namespace OCPP.Core.Server
 {
     public partial class ControllerOCPP20
     {
-        public string HandleAuthorize(OCPPMessage msgIn, OCPPMessage msgOut, OCPPMiddleware ocppMiddleware)
+        public async Task<string> HandleAuthorize(OCPPMessage msgIn, OCPPMessage msgOut, OCPPMiddleware ocppMiddleware)
         {
             string errorCode = null;
             AuthorizeResponse authorizeResponse = new AuthorizeResponse();
@@ -42,7 +43,7 @@ namespace OCPP.Core.Server
                 Logger.LogTrace("Authorize => Message deserialized");
                 idTag = CleanChargeTagId(authorizeRequest.IdToken?.IdToken, Logger);
 
-                authorizeResponse.IdTokenInfo = InternalAuthorize(idTag, ocppMiddleware);
+                authorizeResponse.IdTokenInfo = await InternalAuthorize(idTag, ocppMiddleware);
 
                 authorizeResponse.CustomData = new CustomDataType();
                 authorizeResponse.CustomData.VendorId = VendorId;
@@ -63,7 +64,7 @@ namespace OCPP.Core.Server
         /// <summary>
         /// Authorization logic for reuseability
         /// </summary>
-        internal IdTokenInfoType InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware)
+        internal async Task<IdTokenInfoType> InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware)
         {
             IdTokenInfoType idTagInfo = new IdTokenInfoType();
             bool? externalAuthResult = null;
@@ -92,7 +93,7 @@ namespace OCPP.Core.Server
             {
                 try
                 {
-                    ChargeTag ct = DbContext.Find<ChargeTag>(idTag);
+                    ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
                     if (ct != null)
                     {
                         if (!string.IsNullOrEmpty(ct.ParentTagId))

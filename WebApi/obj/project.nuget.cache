@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "ZbkzoTAYAjs=",
+  "dgSpecHash": "/qoPJ+dyMyk=",
   "success": true,
   "projectFilePath": "D:\\projects\\aspnet\\Ocpp projects\\EChargerBack\\WebApi\\WebApi.csproj",
   "expectedPackageFiles": [
@@ -50,15 +50,5 @@
     "C:\\Users\\A_Lakimov\\.nuget\\packages\\system.text.encodings.web\\8.0.0\\system.text.encodings.web.8.0.0.nupkg.sha512",
     "C:\\Users\\A_Lakimov\\.nuget\\packages\\system.text.json\\7.0.0\\system.text.json.7.0.0.nupkg.sha512"
   ],
-  "logs": [
-    {
-      "code": "NU1803",
-      "level": "Warning",
-      "message": "You are running the 'restore' operation with an 'HTTP' source, 'http://10.10.2.214:8111/httpAuth/app/nuget/feed/EskhataMerchant_Test_EskhataMerchantIntegrationEvent/EskahatMerchantIntegrationEvent/v3/index.json'. Non-HTTPS access will be removed in a future version. Consider migrating to an 'HTTPS' source.",
-      "projectPath": "D:\\projects\\aspnet\\Ocpp projects\\EChargerBack\\WebApi\\WebApi.csproj",
-      "warningLevel": 1,
-      "filePath": "D:\\projects\\aspnet\\Ocpp projects\\EChargerBack\\WebApi\\WebApi.csproj",
-      "targetGraphs": []
-    }
-  ]
+  "logs": []
 }

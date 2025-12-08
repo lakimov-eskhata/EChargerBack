@@ -25,7 +25,6 @@ using Application.Common.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using OCPP.Core.Database;
 using OCPP.Core.Server.Messages_OCPP21;
 
 namespace OCPP.Core.Server

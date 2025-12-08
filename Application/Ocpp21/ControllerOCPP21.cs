@@ -20,15 +20,16 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Application.Common;
 using Application.Common.Models;
+using Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using OCPP.Core.Database;
 using OCPP.Core.Server.Messages_OCPP21;
 
 namespace OCPP.Core.Server
 {
-    public partial class ControllerOCPP21 : ControllerBase
+    public partial class ControllerOCPP21 : OccpControllerBase
     {
         public const string VendorId = "dallmann consulting GmbH";
 
@@ -52,7 +53,7 @@ namespace OCPP.Core.Server
         /// <summary>
         /// Processes the charge point message and returns the answer message
         /// </summary>
-        public OCPPMessage ProcessRequest(OCPPMessage msgIn, OCPPMiddleware ocppMiddleware)
+        public async Task<OCPPMessage> ProcessRequest(OCPPMessage msgIn, OCPPMiddleware ocppMiddleware)
         {
             OCPPMessage msgOut = new OCPPMessage();
             msgOut.MessageType = "3";
@@ -71,16 +72,16 @@ namespace OCPP.Core.Server
                         errorCode = HandleHeartBeat(msgIn, msgOut);
                         break;
                     case "Authorize":
-                        errorCode = HandleAuthorize(msgIn, msgOut, ocppMiddleware);
+                        errorCode = await HandleAuthorize(msgIn, msgOut, ocppMiddleware);
                         break;
                     case "TransactionEvent":
-                        errorCode = HandleTransactionEvent(msgIn, msgOut, ocppMiddleware);
+                        errorCode = await HandleTransactionEvent(msgIn, msgOut, ocppMiddleware);
                         break;
                     case "MeterValues":
                         errorCode = HandleMeterValues(msgIn, msgOut);
                         break;
                     case "StatusNotification":
-                        errorCode = HandleStatusNotification(msgIn, msgOut);
+                        errorCode = await HandleStatusNotification(msgIn, msgOut);
                         break;
                     case "DataTransfer":
                         errorCode = HandleDataTransfer(msgIn, msgOut);
@@ -172,32 +173,20 @@ namespace OCPP.Core.Server
                                      message != "DataTransfer" &&
                                      message != "StatusNotification"));
 
-                    if (doLog)
-                    {
-                        MessageLog msgLog = new MessageLog();
-                        msgLog.ChargePointId = chargePointId;
-                        msgLog.ConnectorId = connectorId;
-                        msgLog.LogTime = DateTime.UtcNow;
-                        msgLog.Message = message;
-                        msgLog.Result = result;
-                        msgLog.ErrorCode = errorCode;
-                        DbContext.MessageLogs.Add(msgLog);
-                        Logger.LogTrace("MessageLog => Writing entry '{0}'", message);
-                        DbContext.SaveChanges();
-                        /*
-                         * Problem with async operation and ID generation (conflict with EF tracking)
-                        _ = DbContext.SaveChangesAsync().ContinueWith(task =>
-                        {
-                            if (task.IsFaulted && task.Exception != null)
-                            {
-                                foreach (var exp in task.Exception.InnerExceptions)
-                                {
-                                    Logger.LogError(exp, "ControllerOCPP20.WriteMessageLog=> Error writing message async to DB: '{0}'", message);
-                                }
-                            }
-                        });
-                        */
-                    }
+                    // Logging to MessageLog entity is disabled because the entity is not available in the current data model.
+                    //if (doLog)
+                    //{
+                    //    MessageLog msgLog = new MessageLog();
+                    //    msgLog.ChargePointId = chargePointId;
+                    //    msgLog.ConnectorId = connectorId;
+                    //    msgLog.LogTime = DateTime.UtcNow;
+                    //    msgLog.Message = message;
+                    //    msgLog.Result = result;
+                    //    msgLog.ErrorCode = errorCode;
+                    //    DbContext.MessageLogs.Add(msgLog);
+                    //    Logger.LogTrace("MessageLog => Writing entry '{0}'", message);
+                    //    DbContext.SaveChanges();
+                    //}
                 }
             }
             catch (Exception exp)

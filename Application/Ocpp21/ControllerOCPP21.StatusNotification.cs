@@ -24,14 +24,13 @@ using System.Threading.Tasks;
 using Application.Common.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using OCPP.Core.Database;
 using OCPP.Core.Server.Messages_OCPP21;
 
 namespace OCPP.Core.Server
 {
     public partial class ControllerOCPP21
     {
-        public string HandleStatusNotification(OCPPMessage msgIn, OCPPMessage msgOut)
+        public async Task<string> HandleStatusNotification(OCPPMessage msgIn, OCPPMessage msgOut)
         {
             string errorCode = null;
             StatusNotificationResponse statusNotificationResponse = new StatusNotificationResponse();
@@ -74,7 +73,7 @@ namespace OCPP.Core.Server
 
                 if (connectorId > 0)
                 {
-                    if (UpdateConnectorStatus(connectorId, newStatus.ToString(), statusNotificationRequest.Timestamp, null, null) == false)
+                    if (await UpdateConnectorStatus(connectorId, newStatus.ToString(), statusNotificationRequest.Timestamp, null, null) == false)
                     {
                         errorCode = ErrorCodes.InternalError;
                     }

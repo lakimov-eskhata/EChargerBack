@@ -15,7 +15,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Application.Common.Models;
+using Application.Common.Interfaces;
 using Infrastructure;
+using Transaction = Domain.Entities.Station.TransactionEntity;
 
 namespace OCPP.Core.Server
 {
@@ -54,6 +56,23 @@ namespace OCPP.Core.Server
             _configuration = configuration;
 
             _logger = logFactory.CreateLogger("OCPPMiddleware");
+        }
+
+        public bool? ProcessExternalAuthorizations(AuthAction action, string token, string chargePointId, int? connectorId, string transactionId, string transactionStartToken)
+        {
+            // External authorization extensions are not wired for OCPP 2.0/2.1 flows yet.
+            // Return null to fall back to the standard authorization logic.
+            return null;
+        }
+
+        private void ProcessRawIncomingMessageSinks(string protocol, string chargePointId, OCPPMessage msg)
+        {
+            // Placeholder for extensions that need raw incoming messages.
+        }
+
+        private void ProcessRawOutgoingMessageSinks(string protocol, string chargePointId, OCPPMessage msg)
+        {
+            // Placeholder for extensions that need raw outgoing messages.
         }
 
         public async Task Invoke(HttpContext context, OCPPCoreContext dbContext)

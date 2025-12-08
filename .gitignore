@@ -1,0 +1,59 @@
+# Build artifacts
+bin/
+obj/
+out/
+/Artifacts/
+
+# VS / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.userosscache
+*.suo
+*.cache
+*.sln.docstates
+
+# Logs and dumps
+*.log
+*.tlog
+*.dmp
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+*.NuGet.config
+
+# Generated code / coverage
+Generated/
+TestResults/
+coverage*/
+*.coverage
+*.coveragexml
+*.opencover.xml
+
+# OS junk
+Thumbs.db
+.DS_Store
+ehthumbs.db
+Desktop.ini
+
+# Tools
+/.vsconfig
+/.vscode-test/
+/.ionide/
+
+# ReSharper / Rider
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Others
+node_modules/
+dist/
+tmp/
+*.swp
+*.swo
+
