@@ -782,36 +782,6 @@
         "runtime": {
           "bin/placeholder/Infrastructure.dll": {}
         }
-      },
-      "Ocpp16/1.0.0": {
-        "type": "project",
-        "framework": ".NETCoreApp,Version=v8.0",
-        "dependencies": {
-          "Application": "1.0.0",
-          "Domain": "1.0.0",
-          "Infrastructure": "1.0.0"
-        },
-        "compile": {
-          "bin/placeholder/Ocpp16.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/Ocpp16.dll": {}
-        }
-      },
-      "Ocpp20/1.0.0": {
-        "type": "project",
-        "framework": ".NETCoreApp,Version=v8.0",
-        "dependencies": {
-          "Application": "1.0.0",
-          "Domain": "1.0.0",
-          "Infrastructure": "1.0.0"
-        },
-        "compile": {
-          "bin/placeholder/Ocpp20.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/Ocpp20.dll": {}
-        }
       }
     }
   },
@@ -2180,16 +2150,6 @@
       "type": "project",
       "path": "../Infrastructure/Infrastructure.csproj",
       "msbuildProject": "../Infrastructure/Infrastructure.csproj"
-    },
-    "Ocpp16/1.0.0": {
-      "type": "project",
-      "path": "../Ocpp16/Ocpp16.csproj",
-      "msbuildProject": "../Ocpp16/Ocpp16.csproj"
-    },
-    "Ocpp20/1.0.0": {
-      "type": "project",
-      "path": "../Ocpp20/Ocpp20.csproj",
-      "msbuildProject": "../Ocpp20/Ocpp20.csproj"
     }
   },
   "projectFileDependencyGroups": {
@@ -2199,8 +2159,6 @@
       "Infrastructure >= 1.0.0",
       "Microsoft.AspNetCore.OpenApi >= 8.0.15",
       "Microsoft.AspNetCore.WebSockets >= 2.3.0",
-      "Ocpp16 >= 1.0.0",
-      "Ocpp20 >= 1.0.0",
       "Quartz.Extensions.DependencyInjection >= 3.15.0",
       "SimpleR.Server >= 1.0.0",
       "Swashbuckle.AspNetCore >= 6.6.2"
@@ -2240,12 +2198,6 @@
             },
             "D:\\projects\\aspnet\\Ocpp projects\\EChargerBack\\Infrastructure\\Infrastructure.csproj": {
               "projectPath": "D:\\projects\\aspnet\\Ocpp projects\\EChargerBack\\Infrastructure\\Infrastructure.csproj"
-            },
-            "D:\\projects\\aspnet\\Ocpp projects\\EChargerBack\\Ocpp16\\Ocpp16.csproj": {
-              "projectPath": "D:\\projects\\aspnet\\Ocpp projects\\EChargerBack\\Ocpp16\\Ocpp16.csproj"
-            },
-            "D:\\projects\\aspnet\\Ocpp projects\\EChargerBack\\Ocpp20\\Ocpp20.csproj": {
-              "projectPath": "D:\\projects\\aspnet\\Ocpp projects\\EChargerBack\\Ocpp20\\Ocpp20.csproj"
             }
           }
         }

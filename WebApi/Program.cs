@@ -1,11 +1,8 @@
 using System.Reflection;
 using Application;
-using Application.Common;
 using Application.Common.Interfaces;
 using Application.Common.Middleware;
 using Infrastructure;
-using Ocpp16;
-using SimpleR.Ocpp;
 using WebApi;
 using WebApi.Endpoints;
 
@@ -43,10 +40,10 @@ app.UseWebSockets();
 app.UseHttpsRedirection();
 
 // Configure OCPP 1.6 endpoint
-app.MapSimpleRToOcpp("/ocpp16/{chargePointId}/", b =>
-{
-    b.UseOcppProtocol().UseDispatcher<Ocpp16Dispatcher>();
-});
+// app.MapSimpleRToOcpp("/ocpp16/{chargePointId}/", b =>
+// {
+//     b.UseOcppProtocol().UseDispatcher<Ocpp16Dispatcher>();
+// });
 
 // // Configure OCPP 2.0.1 endpoint
 // app.MapSimpleRToOcpp("/ocpp201/{chargePointId}/", b =>

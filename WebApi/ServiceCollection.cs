@@ -1,6 +1,5 @@
 ﻿using Application.Common;
 using Application.Common.Interfaces;
-using Ocpp16;
 
 namespace WebApi;
 
@@ -12,7 +11,7 @@ public static class ServiceCollection
         services.AddHttpContextAccessor();
         
         // Add OCPP handlers
-        services.AddScoped<Ocpp16Dispatcher>();
+        // services.AddScoped<Ocpp16Dispatcher>();
         // services.AddScoped<Ocpp20Dispatcher>();
 
         
