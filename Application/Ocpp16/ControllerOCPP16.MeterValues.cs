@@ -52,7 +52,7 @@ namespace Application.Ocpp16
 {
     public partial class ControllerOCPP16
     {
-        public string HandleMeterValues(OCPPMessage msgIn, OCPPMessage msgOut)
+        public async Task<string> HandleMeterValues(OCPPMessage msgIn, OCPPMessage msgOut)
         {
             string errorCode = null;
             MeterValuesResponse meterValuesResponse = new MeterValuesResponse();
@@ -166,7 +166,7 @@ namespace Application.Ocpp16
 
                         if (meterKWH >= 0)
                         {
-                            UpdateConnectorStatus(connectorId, null, null, meterKWH, meterTime);
+                            await UpdateConnectorStatus(connectorId, null, null, meterKWH, meterTime);
                             UpdateMemoryConnectorStatus(connectorId, meterKWH, meterTime, currentChargeKW, stateOfCharge);
                         }
                     }

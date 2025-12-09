@@ -1,25 +1,5 @@
-﻿/*
- * OCPP.Core - https://github.com/dallmann-consulting/OCPP.Core
- * Copyright (C) 2020-2021 dallmann consulting GmbH.
- * All Rights Reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+﻿
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Application.Common;
 using Application.Common.Models;
 using Infrastructure;
@@ -27,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OCPP.Core.Server.Messages_OCPP20;
 
-namespace OCPP.Core.Server
+namespace Application.Ocpp20
 {
     public partial class ControllerOCPP20 : OccpControllerBase
     {
@@ -47,13 +27,13 @@ namespace OCPP.Core.Server
         public ControllerOCPP20(IConfiguration config, ILoggerFactory loggerFactory, ChargePointStatus chargePointStatus, OCPPCoreContext dbContext) :
             base(config, loggerFactory, chargePointStatus, dbContext)
         {
-            Logger = loggerFactory.CreateLogger(typeof(ControllerOCPP20));
+            Logger = loggerFactory.CreateLogger(typeof(Application.Ocpp20.ControllerOCPP20));
         }
 
         /// <summary>
         /// Processes the charge point message and returns the answer message
         /// </summary>
-        public async Task<OCPPMessage> ProcessRequest(OCPPMessage msgIn, OCPPMiddleware ocppMiddleware)
+        public async Task<OCPPMessage> ProcessRequest(OCPPMessage msgIn, Application.Common.Middleware.OCPPMiddleware ocppMiddleware)
         {
             OCPPMessage msgOut = new OCPPMessage();
             msgOut.MessageType = "3";
@@ -78,7 +58,7 @@ namespace OCPP.Core.Server
                         errorCode = await HandleTransactionEvent(msgIn, msgOut, ocppMiddleware);
                         break;
                     case "MeterValues":
-                        errorCode = HandleMeterValues(msgIn, msgOut);
+                        errorCode = await HandleMeterValues(msgIn, msgOut);
                         break;
                     case "StatusNotification":
                         errorCode = await HandleStatusNotification(msgIn, msgOut);

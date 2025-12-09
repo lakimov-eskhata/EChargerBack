@@ -8,6 +8,8 @@ using WebApi.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 // // Add services
 builder.Services.AddWebApi(builder.Configuration);
 builder.Services.AddApplication(builder.Configuration);
@@ -36,7 +38,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseWebSockets(); 
 app.UseHttpsRedirection();
 
 // Configure OCPP 1.6 endpoint
@@ -74,5 +75,15 @@ app.UseExceptionHandling();
 //     var ok = await mediator.Send(new UnlockConnectorCommand(cpid, connectorId));
 //     return ok ? Results.Ok() : Results.BadRequest();
 // });
+
+// Set WebSocketsOptions
+var webSocketOptions = new WebSocketOptions() 
+{
+};
+
+// Accept WebSocket
+app.UseWebSockets(webSocketOptions);
+
+app.UseOCPPMiddleware();
 
 app.Run();

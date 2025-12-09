@@ -17,4 +17,6 @@ public class ChargePointConnectionStorage
 
     public bool TryGet(string chargePointId, out ChargePointStatus? chargePoint)
         => _sessions.TryGetValue(chargePointId, out chargePoint);
+    
+    
 }

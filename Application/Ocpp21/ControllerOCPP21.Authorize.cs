@@ -1,23 +1,4 @@
-﻿/*
- * OCPP.Core - https://github.com/dallmann-consulting/OCPP.Core
- * Copyright (C) 2020-2025 dallmann consulting GmbH.
- * All Rights Reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-using Application.Common.Interfaces;
+﻿using Application.Common.Interfaces;
 using Application.Common.Models;
 using ChargeTag = Domain.Entities.Station.ChargeTagEntity;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +14,7 @@ namespace OCPP.Core.Server
 {
     public partial class ControllerOCPP21
     {
-        public async Task<string> HandleAuthorize(OCPPMessage msgIn, OCPPMessage msgOut, OCPPMiddleware ocppMiddleware)
+        public async Task<string> HandleAuthorize(OCPPMessage msgIn, OCPPMessage msgOut, Application.Common.Middleware.OCPPMiddleware ocppMiddleware)
         {
             string errorCode = null;
             AuthorizeResponse authorizeResponse = new AuthorizeResponse();
@@ -51,67 +32,44 @@ namespace OCPP.Core.Server
 
                 authorizeResponse.IdTokenInfo = new IdTokenInfoType();
 
-                bool? externalAuthResult = null;
+
                 try
                 {
-                    externalAuthResult = ocppMiddleware.ProcessExternalAuthorizations(AuthAction.Authorize, idTag, ChargePointStatus.Id, 0, string.Empty, string.Empty);
-                }
-                catch (Exception exp)
-                {
-                    Logger.LogError(exp, "Authorize => Exception from external authorization: {0}", exp.Message);
-                }
-
-                if (externalAuthResult.HasValue)
-                {
-                    if (externalAuthResult.Value)
+                    var ct = await _dbContext.ChargeTags.AsNoTracking().FirstOrDefaultAsync(x => x.TagId == idTag);
+                    if (ct != null)
                     {
-                        authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
+                        if (!string.IsNullOrEmpty(ct.ParentTagId))
+                        {
+                            authorizeResponse.IdTokenInfo.GroupIdToken = new IdTokenType();
+                            authorizeResponse.IdTokenInfo.GroupIdToken.IdToken = ct.ParentTagId;
+                        }
+
+                        if (ct.Blocked.HasValue && ct.Blocked.Value)
+                        {
+                            authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Blocked;
+                        }
+                        else if (ct.ExpiryDate.HasValue && ct.ExpiryDate.Value < DateTime.Now)
+                        {
+                            authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Expired;
+                        }
+                        else
+                        {
+                            authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
+                        }
                     }
                     else
                     {
                         authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
                     }
-                    Logger.LogInformation("Authorize => Extension auth. : Charge tag='{0}' => Status: {1}", idTag, authorizeResponse.IdTokenInfo.Status);
+
+                    Logger.LogInformation("Authorize => Status: {0}", authorizeResponse.IdTokenInfo.Status);
                 }
-                else
+                catch (Exception exp)
                 {
-                    try
-                    {
-                        ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
-                        if (ct != null)
-                        {
-                            if (!string.IsNullOrEmpty(ct.ParentTagId))
-                            {
-                                authorizeResponse.IdTokenInfo.GroupIdToken = new IdTokenType();
-                                authorizeResponse.IdTokenInfo.GroupIdToken.IdToken = ct.ParentTagId;
-                            }
-
-                            if (ct.Blocked.HasValue && ct.Blocked.Value)
-                            {
-                                authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Blocked;
-                            }
-                            else if (ct.ExpiryDate.HasValue && ct.ExpiryDate.Value < DateTime.Now)
-                            {
-                                authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Expired;
-                            }
-                            else
-                            {
-                                authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
-                            }
-                        }
-                        else
-                        {
-                            authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
-                        }
-
-                        Logger.LogInformation("Authorize => Status: {0}", authorizeResponse.IdTokenInfo.Status);
-                    }
-                    catch (Exception exp)
-                    {
-                        Logger.LogError(exp, "Authorize => Exception reading charge tag ({0}): {1}", idTag, exp.Message);
-                        authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
-                    }
+                    Logger.LogError(exp, "Authorize => Exception reading charge tag ({0}): {1}", idTag, exp.Message);
+                    authorizeResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
                 }
+
 
                 msgOut.JsonPayload = JsonConvert.SerializeObject(authorizeResponse);
                 Logger.LogTrace("Authorize => Response serialized");
@@ -129,70 +87,48 @@ namespace OCPP.Core.Server
         /// <summary>
         /// Authorization logic for reuseability
         /// </summary>
-        internal async Task<IdTokenInfoType> InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware)
+        internal async Task<IdTokenInfoType> InternalAuthorize(string idTag)
         {
             IdTokenInfoType idTagInfo = new IdTokenInfoType();
-            bool? externalAuthResult = null;
+
+
             try
             {
-                externalAuthResult = ocppMiddleware.ProcessExternalAuthorizations(AuthAction.Authorize, idTag, ChargePointStatus.Id, 0, string.Empty, string.Empty);
-            }
-            catch (Exception exp)
-            {
-                Logger.LogError(exp, "Authorize => Exception from external authorization: {0}", exp.Message);
-            }
-
-            if (externalAuthResult.HasValue)
-            {
-                if (externalAuthResult.Value)
+                ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
+                if (ct != null)
                 {
-                    idTagInfo.Status = AuthorizationStatusEnumType.Accepted;
+                    if (!string.IsNullOrEmpty(ct.ParentTagId))
+                    {
+                        idTagInfo.GroupIdToken = new IdTokenType();
+                        idTagInfo.GroupIdToken.IdToken = ct.ParentTagId;
+                    }
+
+                    if (ct.Blocked.HasValue && ct.Blocked.Value)
+                    {
+                        idTagInfo.Status = AuthorizationStatusEnumType.Blocked;
+                    }
+                    else if (ct.ExpiryDate.HasValue && ct.ExpiryDate.Value < DateTime.Now)
+                    {
+                        idTagInfo.Status = AuthorizationStatusEnumType.Expired;
+                    }
+                    else
+                    {
+                        idTagInfo.Status = AuthorizationStatusEnumType.Accepted;
+                    }
                 }
                 else
                 {
                     idTagInfo.Status = AuthorizationStatusEnumType.Invalid;
                 }
-                Logger.LogInformation("Authorize => Extension auth. : Charge tag='{0}' => Status: {1}", idTag, idTagInfo.Status);
+
+                Logger.LogInformation("Authorize => Status: {0}", idTagInfo.Status);
             }
-            else
+            catch (Exception exp)
             {
-                try
-                {
-                    ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
-                    if (ct != null)
-                    {
-                        if (!string.IsNullOrEmpty(ct.ParentTagId))
-                        {
-                            idTagInfo.GroupIdToken = new IdTokenType();
-                            idTagInfo.GroupIdToken.IdToken = ct.ParentTagId;
-                        }
-
-                        if (ct.Blocked.HasValue && ct.Blocked.Value)
-                        {
-                            idTagInfo.Status = AuthorizationStatusEnumType.Blocked;
-                        }
-                        else if (ct.ExpiryDate.HasValue && ct.ExpiryDate.Value < DateTime.Now)
-                        {
-                            idTagInfo.Status = AuthorizationStatusEnumType.Expired;
-                        }
-                        else
-                        {
-                            idTagInfo.Status = AuthorizationStatusEnumType.Accepted;
-                        }
-                    }
-                    else
-                    {
-                        idTagInfo.Status = AuthorizationStatusEnumType.Invalid;
-                    }
-
-                    Logger.LogInformation("Authorize => Status: {0}", idTagInfo.Status);
-                }
-                catch (Exception exp)
-                {
-                    Logger.LogError(exp, "Authorize => Exception reading charge tag ({0}): {1}", idTag, exp.Message);
-                    idTagInfo.Status = AuthorizationStatusEnumType.Invalid;
-                }
+                Logger.LogError(exp, "Authorize => Exception reading charge tag ({0}): {1}", idTag, exp.Message);
+                idTagInfo.Status = AuthorizationStatusEnumType.Invalid;
             }
+
 
             return idTagInfo;
         }

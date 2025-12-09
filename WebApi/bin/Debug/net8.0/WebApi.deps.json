@@ -13,8 +13,6 @@
           "Infrastructure": "1.0.0",
           "Microsoft.AspNetCore.OpenApi": "8.0.15",
           "Microsoft.AspNetCore.WebSockets": "2.3.0",
-          "Ocpp16": "1.0.0",
-          "Ocpp20": "1.0.0",
           "Quartz.Extensions.DependencyInjection": "3.15.0",
           "SimpleR.Server": "1.0.0",
           "Swashbuckle.AspNetCore": "6.6.2"
@@ -458,32 +456,6 @@
             "fileVersion": "1.0.0.0"
           }
         }
-      },
-      "Ocpp16/1.0.0": {
-        "dependencies": {
-          "Application": "1.0.0",
-          "Domain": "1.0.0",
-          "Infrastructure": "1.0.0"
-        },
-        "runtime": {
-          "Ocpp16.dll": {
-            "assemblyVersion": "1.0.0",
-            "fileVersion": "1.0.0.0"
-          }
-        }
-      },
-      "Ocpp20/1.0.0": {
-        "dependencies": {
-          "Application": "1.0.0",
-          "Domain": "1.0.0",
-          "Infrastructure": "1.0.0"
-        },
-        "runtime": {
-          "Ocpp20.dll": {
-            "assemblyVersion": "1.0.0",
-            "fileVersion": "1.0.0.0"
-          }
-        }
       }
     }
   },
@@ -819,16 +791,6 @@
       "sha512": ""
     },
     "Infrastructure/1.0.0": {
-      "type": "project",
-      "serviceable": false,
-      "sha512": ""
-    },
-    "Ocpp16/1.0.0": {
-      "type": "project",
-      "serviceable": false,
-      "sha512": ""
-    },
-    "Ocpp20/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

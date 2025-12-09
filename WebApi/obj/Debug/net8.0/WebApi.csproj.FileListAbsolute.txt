@@ -120,13 +120,9 @@ D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\System.Net
 D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Application.dll
 D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Domain.dll
 D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Infrastructure.dll
-D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Ocpp16.dll
-D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Ocpp20.dll
 D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Application.pdb
 D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Domain.pdb
 D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Infrastructure.pdb
-D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Ocpp16.pdb
-D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\bin\Debug\net8.0\Ocpp20.pdb
 D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\obj\Debug\net8.0\staticwebassets.build.json
 D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\obj\Debug\net8.0\staticwebassets.development.json
 D:\projects\aspnet\Ocpp projects\EChargerBack\WebApi\obj\Debug\net8.0\staticwebassets\msbuild.WebApi.Microsoft.AspNetCore.StaticWebAssets.props

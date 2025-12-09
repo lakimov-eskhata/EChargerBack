@@ -5,6 +5,7 @@ using Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OCPP.Core.Server;
+using OCPPMiddleware = Application.Common.Middleware.OCPPMiddleware;
 
 namespace Application.Ocpp16
 {
@@ -56,7 +57,7 @@ namespace Application.Ocpp16
                     errorCode = await HandleStopTransaction(msgIn, msgOut, ocppMiddleware);
                     break;
                 case "MeterValues":
-                    errorCode = HandleMeterValues(msgIn, msgOut);
+                    errorCode = await HandleMeterValues(msgIn, msgOut);
                     break;
                 case "StatusNotification":
                     errorCode = await HandleStatusNotification(msgIn, msgOut);

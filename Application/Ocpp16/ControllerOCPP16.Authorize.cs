@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using OCPP.Core.Server;
+using OCPPMiddleware = Application.Common.Middleware.OCPPMiddleware;
 
 namespace Application.Ocpp16
 {

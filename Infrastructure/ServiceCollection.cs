@@ -18,7 +18,7 @@ public static class ServiceCollection
                     b => b.MigrationsAssembly(typeof(OCPPCoreContext).Assembly.FullName)), ServiceLifetime.Transient);
         }
 
-        services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>()!);
+        // services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>()!);
         return services;
     }
 }

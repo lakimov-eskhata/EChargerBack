@@ -1,23 +1,4 @@
-﻿/*
- * OCPP.Core - https://github.com/dallmann-consulting/OCPP.Core
- * Copyright (C) 2020-2025 dallmann consulting GmbH.
- * All Rights Reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-using Application.Common.Interfaces;
+﻿using Application.Common.Interfaces;
 using Application.Common.Models;
 using ChargeTag = Domain.Entities.Station.ChargeTagEntity;
 using Transaction = Domain.Entities.Station.TransactionEntity;
@@ -26,15 +7,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using OCPP.Core.Server.Messages_OCPP21;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace OCPP.Core.Server
 {
     public partial class ControllerOCPP21
     {
-        public async Task<string> HandleTransactionEvent(OCPPMessage msgIn, OCPPMessage msgOut, OCPPMiddleware ocppMiddleware)
+        public async Task<string> HandleTransactionEvent(OCPPMessage msgIn, OCPPMessage msgOut, Application.Common.Middleware.OCPPMiddleware ocppMiddleware)
         {
             string errorCode = null;
             TransactionEventResponse transactionEventResponse = new TransactionEventResponse();
@@ -51,8 +29,7 @@ namespace OCPP.Core.Server
                 Logger.LogTrace("TransactionEvent => Message deserialized");
 
                 string idTag = CleanChargeTagId(transactionEventRequest.IdToken?.IdToken, Logger);
-                connectorId = (transactionEventRequest.Evse != null) ? 
-                                        transactionEventRequest.Evse.Id : 0;
+                connectorId = (transactionEventRequest.Evse != null) ? transactionEventRequest.Evse.Id : 0;
 
                 //  Extract meter values with correct scale
                 double currentChargeKW = -1;
@@ -72,7 +49,7 @@ namespace OCPP.Core.Server
 
                 if (connectorId > 0 && meterKWH >= 0)
                 {
-                    UpdateConnectorStatus(connectorId, null, null, meterKWH, meterTime);
+                    await UpdateConnectorStatus(connectorId, null, null, meterKWH, meterTime);
                     UpdateMemoryConnectorStatus(connectorId, meterKWH, meterTime.Value, currentChargeKW, stateOfCharge);
                 }
 
@@ -81,63 +58,40 @@ namespace OCPP.Core.Server
                     try
                     {
                         #region Start Transaction
+
                         bool denyConcurrentTx = Configuration.GetValue<bool>("DenyConcurrentTx", false);
                         transactionEventResponse.IdTokenInfo = new IdTokenInfoType();
 
-                        bool? externalAuthResult = null;
-                        try
+                        var ct = await _dbContext.ChargeTags.AsNoTracking().FirstOrDefaultAsync(x => x.TagId == idTag);
+                        if (ct != null)
                         {
-                            externalAuthResult = ocppMiddleware.ProcessExternalAuthorizations(AuthAction.StartTransaction, idTag, ChargePointStatus.Id, connectorId, string.Empty, string.Empty);
-                        }
-                        catch (Exception exp)
-                        {
-                            Logger.LogError(exp, "StartTransaction => Exception from external authorization: {0}", exp.Message);
-                        }
-
-                        if (externalAuthResult.HasValue)
-                        {
-                            if (externalAuthResult.Value)
+                            if (ct.Blocked.HasValue && ct.Blocked.Value)
+                            {
+                                transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Blocked;
+                            }
+                            else if (ct.ExpiryDate.HasValue && ct.ExpiryDate.Value < DateTime.Now)
+                            {
+                                transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Expired;
+                            }
+                            else
                             {
                                 transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
                             }
-                            else
-                            {
-                                transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
-                            }
-                            Logger.LogInformation("StartTransaction => Extension auth. : Charge tag='{0}' => Status: {1}", idTag, transactionEventResponse.IdTokenInfo.Status);
                         }
                         else
                         {
-                            ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
-                            if (ct != null)
-                            {
-                                if (ct.Blocked.HasValue && ct.Blocked.Value)
-                                {
-                                    transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Blocked;
-                                }
-                                else if (ct.ExpiryDate.HasValue && ct.ExpiryDate.Value < DateTime.Now)
-                                {
-                                    transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Expired;
-                                }
-                                else
-                                {
-                                    transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
-                                }
-                            }
-                            else
-                            {
-                                transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Unknown;
-                            }
+                            transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Unknown;
                         }
+
 
                         if (transactionEventResponse.IdTokenInfo.Status == AuthorizationStatusEnumType.Accepted &&
                             denyConcurrentTx)
                         {
                             // Check that no open transaction with this idTag exists
-                        Transaction tx = await _dbContext.Transactions
-                            .Where(t => !t.StopTime.HasValue && t.StartTagId == idTag)
-                            .OrderByDescending(t => t.TransactionId)
-                            .FirstOrDefaultAsync();
+                            var tx = await _dbContext.Transactions
+                                .Where(t => !t.StopTime.HasValue && t.StartTagId == ct.TagId)
+                                .OrderByDescending(t => t.TransactionId)
+                                .FirstOrDefaultAsync();
 
                             if (tx != null)
                             {
@@ -149,7 +103,7 @@ namespace OCPP.Core.Server
 
                         if (transactionEventResponse.IdTokenInfo.Status == AuthorizationStatusEnumType.Accepted)
                         {
-                            UpdateConnectorStatus(connectorId, ConnectorStatusEnum.Occupied.ToString(), meterTime, null, null);
+                            await UpdateConnectorStatus(connectorId, nameof(ConnectorStatusEnum.Occupied), meterTime, null, null);
 
                             try
                             {
@@ -173,6 +127,7 @@ namespace OCPP.Core.Server
                                 errorCode = ErrorCodes.InternalError;
                             }
                         }
+
                         #endregion
                     }
                     catch (Exception exp)
@@ -188,6 +143,7 @@ namespace OCPP.Core.Server
                     try
                     {
                         #region Update Transaction
+
                         Transaction transaction = await _dbContext.Transactions
                             .Where(t => t.Uid == transactionEventRequest.TransactionInfo.TransactionId)
                             .OrderByDescending(t => t.TransactionId)
@@ -208,9 +164,11 @@ namespace OCPP.Core.Server
                         else
                         {
                             Logger.LogError("UpdateTransaction => Unknown or not matching transaction: uid='{0}' / chargepoint='{1}' / tag={2}", transactionEventRequest.TransactionInfo?.TransactionId, ChargePointStatus?.Id, idTag);
-                            WriteMessageLog(ChargePointStatus?.Id, null, msgIn.Action, string.Format("UnknownTransaction:UID={0}/Meter={1}", transactionEventRequest.TransactionInfo?.TransactionId, GetMeterValue(transactionEventRequest.MeterValue)), errorCode);
+                            WriteMessageLog(ChargePointStatus?.Id, null, msgIn.Action,
+                                string.Format("UnknownTransaction:UID={0}/Meter={1}", transactionEventRequest.TransactionInfo?.TransactionId, GetMeterValue(transactionEventRequest.MeterValue)), errorCode);
                             errorCode = ErrorCodes.PropertyConstraintViolation;
                         }
+
                         #endregion
                     }
                     catch (Exception exp)
@@ -225,6 +183,7 @@ namespace OCPP.Core.Server
                     try
                     {
                         #region End Transaction
+
                         transactionEventResponse.IdTokenInfo = new IdTokenInfoType();
 
                         Transaction transaction = await _dbContext.Transactions
@@ -244,70 +203,42 @@ namespace OCPP.Core.Server
                             }
                             else
                             {
-                                bool? externalAuthResult = null;
+                                // No result from external authorization => check local RFID tokens
                                 try
                                 {
-                                    // First step: call external authorizations
-                                    externalAuthResult = ocppMiddleware.ProcessExternalAuthorizations(AuthAction.StopTransaction, idTag, ChargePointStatus.Id, transaction?.ConnectorId, transaction?.Uid, transaction?.StartTagId);
-                                }
-                                catch (Exception exp)
-                                {
-                                    Logger.LogError(exp, "EndTransaction => Exception from external authorization: {0}", exp.Message);
-                                }
-
-                                // Do we have a result from external authorizations?
-                                if (externalAuthResult.HasValue)
-                                {
-                                    // Yes => use this as accepted or invalid
-                                    if (externalAuthResult.Value)
+                                    var ct = await _dbContext.ChargeTags.AsNoTracking().FirstOrDefaultAsync(x => x.TagId == idTag);
+                                    if (ct != null)
                                     {
-                                        transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
-                                    }
-                                    else
-                                    {
-                                        transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
-                                    }
-                                    Logger.LogInformation("EndTransaction => Extension auth. : Charge tag='{0}' => Status: {1}", idTag, transactionEventResponse.IdTokenInfo.Status);
-                                }
-                                else
-                                {
-                                    // No result from external authorization => check local RFID tokens
-                                    try
-                                    {
-                                        ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
-                                        if (ct != null)
+                                        if (!string.IsNullOrWhiteSpace(ct.ParentTagId))
                                         {
-                                            if (!string.IsNullOrWhiteSpace(ct.ParentTagId))
-                                            {
-                                                transactionEventResponse.IdTokenInfo.GroupIdToken = new IdTokenType();
-                                                transactionEventResponse.IdTokenInfo.GroupIdToken.IdToken = ct.ParentTagId;
-                                            }
+                                            transactionEventResponse.IdTokenInfo.GroupIdToken = new IdTokenType();
+                                            transactionEventResponse.IdTokenInfo.GroupIdToken.IdToken = ct.ParentTagId;
+                                        }
 
-                                            if (ct.Blocked.HasValue && ct.Blocked.Value)
-                                            {
-                                                transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Blocked;
-                                            }
-                                            else if (ct.ExpiryDate.HasValue && ct.ExpiryDate.Value < DateTime.Now)
-                                            {
-                                                transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Expired;
-                                            }
-                                            else
-                                            {
-                                                transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
-                                            }
+                                        if (ct.Blocked.HasValue && ct.Blocked.Value)
+                                        {
+                                            transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Blocked;
+                                        }
+                                        else if (ct.ExpiryDate.HasValue && ct.ExpiryDate.Value < DateTime.Now)
+                                        {
+                                            transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Expired;
                                         }
                                         else
                                         {
-                                            transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Unknown;
+                                            transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
                                         }
-
-                                        Logger.LogInformation("EndTransaction => RFID-tag='{0}' => Status: {1}", idTag, transactionEventResponse.IdTokenInfo.Status);
                                     }
-                                    catch (Exception exp)
+                                    else
                                     {
-                                        Logger.LogError(exp, "EndTransaction => Exception reading charge tag ({0}): {1}", idTag, exp.Message);
-                                        transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
+                                        transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Unknown;
                                     }
+
+                                    Logger.LogInformation("EndTransaction => RFID-tag='{0}' => Status: {1}", idTag, transactionEventResponse.IdTokenInfo.Status);
+                                }
+                                catch (Exception exp)
+                                {
+                                    Logger.LogError(exp, "EndTransaction => Exception reading charge tag ({0}): {1}", idTag, exp.Message);
+                                    transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
                                 }
                             }
                         }
@@ -315,7 +246,8 @@ namespace OCPP.Core.Server
                         {
                             // Error unknown transaction id
                             Logger.LogError("EndTransaction => Unknown or not matching transaction: id={0} / chargepoint={1} / tag={2}", transactionEventRequest.TransactionInfo.TransactionId, ChargePointStatus?.Id, idTag);
-                            WriteMessageLog(ChargePointStatus?.Id, transaction?.ConnectorId, msgIn.Action, string.Format("UnknownTransaction:ID={0}/Meter={1}", transactionEventRequest.TransactionInfo.TransactionId, transactionEventRequest.MeterValue), errorCode);
+                            WriteMessageLog(ChargePointStatus?.Id, transaction?.ConnectorId, msgIn.Action,
+                                string.Format("UnknownTransaction:ID={0}/Meter={1}", transactionEventRequest.TransactionInfo.TransactionId, transactionEventRequest.MeterValue), errorCode);
                             errorCode = ErrorCodes.PropertyConstraintViolation;
                         }
 
@@ -332,7 +264,6 @@ namespace OCPP.Core.Server
                             Logger.LogInformation("EndTransaction => RFID-tag='{0}' NOT accepted => override to ALLOWED because it is the start tag", idTag);
                             transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
                         }
-
 
 
                         // General authorization done. Now check the result and update the transaction
@@ -385,7 +316,8 @@ namespace OCPP.Core.Server
                                 else
                                 {
                                     Logger.LogError("EndTransaction => Unknown or not matching transaction: uid='{0}' / chargepoint='{1}' / tag={2}", transactionEventRequest.TransactionInfo?.TransactionId, ChargePointStatus?.Id, idTag);
-                                    WriteMessageLog(ChargePointStatus?.Id, connectorId, msgIn.Action, string.Format("UnknownTransaction:UID={0}/Meter={1}", transactionEventRequest.TransactionInfo?.TransactionId, GetMeterValue(transactionEventRequest.MeterValue)), errorCode);
+                                    WriteMessageLog(ChargePointStatus?.Id, connectorId, msgIn.Action,
+                                        string.Format("UnknownTransaction:UID={0}/Meter={1}", transactionEventRequest.TransactionInfo?.TransactionId, GetMeterValue(transactionEventRequest.MeterValue)), errorCode);
                                     errorCode = ErrorCodes.PropertyConstraintViolation;
                                 }
                             }
@@ -395,6 +327,7 @@ namespace OCPP.Core.Server
                                 transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
                             }
                         }
+
                         #endregion
                     }
                     catch (Exception exp)
@@ -466,8 +399,8 @@ namespace OCPP.Core.Server
                             currentChargeKW = currentChargeKW / 1000;
                         }
                         else if (sampleValue.UnitOfMeasure?.Unit == "KW" ||
-                                sampleValue.UnitOfMeasure?.Unit == "kVA" ||
-                                sampleValue.UnitOfMeasure?.Unit == "kvar")
+                                 sampleValue.UnitOfMeasure?.Unit == "kVA" ||
+                                 sampleValue.UnitOfMeasure?.Unit == "kvar")
                         {
                             // already kW => OK
                             Logger.LogTrace("GetMeterValues => Charging '{0:0.0}' kW", currentChargeKW);
@@ -478,7 +411,7 @@ namespace OCPP.Core.Server
                         }
                     }
                     else if (sampleValue.Measurand == MeasurandEnumType.Energy_Active_Import_Register ||
-                             sampleValue.Measurand == null)  // Spec: Default=Energy_Active_Import_Register
+                             sampleValue.Measurand == null) // Spec: Default=Energy_Active_Import_Register
                     {
                         // charged amount of energy
                         meterKWH = sampleValue.Value;
@@ -492,8 +425,8 @@ namespace OCPP.Core.Server
                             meterKWH = meterKWH / 1000;
                         }
                         else if (sampleValue.UnitOfMeasure?.Unit == "kWh" ||
-                                sampleValue.UnitOfMeasure?.Unit == "kVAh" ||
-                                sampleValue.UnitOfMeasure?.Unit == "kvarh")
+                                 sampleValue.UnitOfMeasure?.Unit == "kVAh" ||
+                                 sampleValue.UnitOfMeasure?.Unit == "kvarh")
                         {
                             // already kWh => OK
                             Logger.LogTrace("GetMeterValues => Value: '{0:0.0}' kWh", meterKWH);
@@ -502,6 +435,7 @@ namespace OCPP.Core.Server
                         {
                             Logger.LogWarning("GetMeterValues => Value: unexpected unit: '{0}' (Value={1})", sampleValue.UnitOfMeasure?.Unit, sampleValue.Value);
                         }
+
                         meterTime = meterValue.Timestamp;
                     }
                     else if (sampleValue.Measurand == MeasurandEnumType.SoC)

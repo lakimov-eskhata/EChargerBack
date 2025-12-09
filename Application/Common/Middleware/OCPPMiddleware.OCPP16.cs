@@ -1,26 +1,4 @@
-﻿/*
- * OCPP.Core - https://github.com/dallmann-consulting/OCPP.Core
- * Copyright (C) 2020-2025 dallmann consulting GmbH.
- * All Rights Reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+﻿
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -28,8 +6,12 @@ using Application.Common.Interfaces;
 using Application.Common.Models;
 using Application.Ocpp16.Messages_OCPP16;
 using Infrastructure;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
-namespace OCPP.Core.Server
+namespace Application.Common.Middleware
 {
     public partial class OCPPMiddleware
     {
@@ -135,7 +117,7 @@ namespace OCPP.Core.Server
             finally
             {
                 logger.LogInformation("OCPPMiddleware.Receive16 => Websocket closed: State={0} / CloseStatus={1}", chargePointStatusStatus.WebSocket.State, chargePointStatusStatus.WebSocket.CloseStatus);
-                _chargePointStatusDict.Remove(chargePointStatusStatus.Id);
+                ConnectionStorage.Remove(chargePointStatusStatus.Id);
             }
         }
 
@@ -370,7 +352,7 @@ namespace OCPP.Core.Server
         private async Task RemoteStartTransaction16(ChargePointStatus chargePointStatusStatus, HttpContext apiCallerContext, OCPPCoreContext dbContext, string urlConnectorId, string idTag)
         {
             ILogger logger = _logFactory.CreateLogger("OCPPMiddleware.OCPP16");
-            var controller16 = new Application.Ocpp16.ControllerOCPP16(_configuration, _logFactory, chargePointStatusStatus, dbContext);
+            var controller16 = new Ocpp16.ControllerOCPP16(_configuration, _logFactory, chargePointStatusStatus, dbContext);
 
             // Parse connector id (int value)
             int connectorId = 0;

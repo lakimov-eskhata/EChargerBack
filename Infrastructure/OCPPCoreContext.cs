@@ -25,6 +25,8 @@ namespace Infrastructure
             {
                 entity.ToTable("ChargePoint");
 
+                entity.HasKey(e => e.ChargePointId);
+                
                 entity.HasIndex(e => e.ChargePointId, "ChargePoint_Identifier")
                     .IsUnique();
 
@@ -68,6 +70,8 @@ namespace Infrastructure
 
             modelBuilder.Entity<TransactionEntity>(entity =>
             {
+                entity.HasKey(x => x.TransactionId);
+                
                 entity.Property(e => e.Uid).HasMaxLength(50);
 
                 entity.Property(e => e.ChargePointId)

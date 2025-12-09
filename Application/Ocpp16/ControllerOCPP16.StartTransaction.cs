@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using OCPP.Core.Server;
+using OCPPMiddleware = Application.Common.Middleware.OCPPMiddleware;
 
 namespace Application.Ocpp16
 {
@@ -32,7 +33,7 @@ namespace Application.Ocpp16
                 if (connectorId > 0)
                 {
                     // Update meter value in db connector status 
-                    UpdateConnectorStatus(connectorId, ConnectorStatusEnum.Occupied.ToString(), startTransactionRequest.Timestamp, (double)startTransactionRequest.MeterStart / 1000, startTransactionRequest.Timestamp);
+                    await UpdateConnectorStatus(connectorId, ConnectorStatusEnum.Occupied.ToString(), startTransactionRequest.Timestamp, (double)startTransactionRequest.MeterStart / 1000, startTransactionRequest.Timestamp);
                     UpdateMemoryConnectorStatus(connectorId, (double)startTransactionRequest.MeterStart / 1000, startTransactionRequest.Timestamp, null, null);
                 }
 

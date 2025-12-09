@@ -1,39 +1,20 @@
-﻿/*
- * OCPP.Core - https://github.com/dallmann-consulting/OCPP.Core
- * Copyright (C) 2020-2024 dallmann consulting GmbH.
- * All Rights Reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+﻿
 
+using System.Net.WebSockets;
+using System.Text;
+using System.Text.RegularExpressions;
+using Application.Common.Models;
+using Application.Ocpp20.Messages_OCPP20;
+using Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net.WebSockets;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
-using Application.Common.Models;
-using Infrastructure;
+using OCPP.Core.Server;
 using OCPP.Core.Server.Messages_OCPP20;
+using ControllerOCPP20 = Application.Ocpp20.ControllerOCPP20;
 
-namespace OCPP.Core.Server
+namespace Application.Common.Middleware
 {
     public partial class OCPPMiddleware
     {
@@ -89,12 +70,6 @@ namespace OCPP.Core.Server
 
                                     OCPPMessage msgIn = new OCPPMessage(messageTypeId, uniqueId, action, jsonPaylod);
 
-                                    // Send raw incoming messages to extensions
-                                    _ = Task.Run(() =>
-                                    {
-                                        ProcessRawIncomingMessageSinks(chargePointStatus.Protocol, chargePointStatus.Id, msgIn);
-                                    });
-
                                     if (msgIn.MessageType == "2")
                                     {
                                         // Request from chargepoint to OCPP server
@@ -145,7 +120,7 @@ namespace OCPP.Core.Server
             finally
             {
                 logger.LogInformation("OCPPMiddleware.Receive20 => Websocket closed: State={0} / CloseStatus={1}", chargePointStatus.WebSocket.State, chargePointStatus.WebSocket.CloseStatus);
-                _chargePointStatusDict.Remove(chargePointStatus.Id);
+                ConnectionStorage.Remove(chargePointStatus.Id);
             }
         }
 
@@ -159,8 +134,8 @@ namespace OCPP.Core.Server
 
             logger.LogTrace("OCPPMiddleware.OCPP20 => Reset20: ChargePoint='{0}'", chargePointStatus.Id);
 
-            Messages_OCPP20.ResetRequest resetRequest = new Messages_OCPP20.ResetRequest();
-            resetRequest.Type = Messages_OCPP20.ResetEnumType.OnIdle;
+            ResetRequest resetRequest = new ResetRequest();
+            resetRequest.Type = ResetEnumType.OnIdle;
             resetRequest.CustomData = new CustomDataType();
             resetRequest.CustomData.VendorId = ControllerOCPP20.VendorId;
 
@@ -203,7 +178,7 @@ namespace OCPP.Core.Server
             ILogger logger = _logFactory.CreateLogger("OCPPMiddleware.OCPP20");
             ControllerOCPP20 controller20 = new ControllerOCPP20(_configuration, _logFactory, chargePointStatus, dbContext);
 
-            Messages_OCPP20.UnlockConnectorRequest unlockConnectorRequest = new Messages_OCPP20.UnlockConnectorRequest();
+            OCPP.Core.Server.Messages_OCPP20.UnlockConnectorRequest unlockConnectorRequest = new OCPP.Core.Server.Messages_OCPP20.UnlockConnectorRequest();
             unlockConnectorRequest.EvseId = 0;
             unlockConnectorRequest.CustomData = new CustomDataType();
             unlockConnectorRequest.CustomData.VendorId = ControllerOCPP20.VendorId;
@@ -264,9 +239,9 @@ namespace OCPP.Core.Server
                 int.TryParse(urlConnectorId, out connectorId);
             }
 
-            Messages_OCPP20.SetChargingProfileRequest setChargingProfileRequest = new Messages_OCPP20.SetChargingProfileRequest();
+            OCPP.Core.Server.Messages_OCPP20.SetChargingProfileRequest setChargingProfileRequest = new OCPP.Core.Server.Messages_OCPP20.SetChargingProfileRequest();
             setChargingProfileRequest.EvseId = connectorId;
-            setChargingProfileRequest.ChargingProfile = new Messages_OCPP20.ChargingProfileType();
+            setChargingProfileRequest.ChargingProfile = new OCPP.Core.Server.Messages_OCPP20.ChargingProfileType();
             // Default values
             setChargingProfileRequest.ChargingProfile.Id = 100;
             setChargingProfileRequest.ChargingProfile.StackLevel = 1;
@@ -332,7 +307,7 @@ namespace OCPP.Core.Server
             ILogger logger = _logFactory.CreateLogger("OCPPMiddleware.OCPP20");
             ControllerOCPP20 controller20 = new ControllerOCPP20(_configuration, _logFactory, chargePointStatus, dbContext);
 
-            Messages_OCPP20.ClearChargingProfileRequest clearChargingProfileRequest = new Messages_OCPP20.ClearChargingProfileRequest();
+            OCPP.Core.Server.Messages_OCPP20.ClearChargingProfileRequest clearChargingProfileRequest = new OCPP.Core.Server.Messages_OCPP20.ClearChargingProfileRequest();
             // Default values
             clearChargingProfileRequest.ChargingProfileId = 100;
             clearChargingProfileRequest.ChargingProfileCriteria = new ClearChargingProfileType()
@@ -399,12 +374,12 @@ namespace OCPP.Core.Server
             string apiResult = string.Empty;
 
             // Use Authorize logic to check idTag
-            IdTokenInfoType idTokenInfo = await controller20.InternalAuthorize(idTag, this);
+            IdTokenInfoType idTokenInfo = await controller20.InternalAuthorize(idTag);
             if (idTokenInfo.Status == AuthorizationStatusEnumType.Accepted)
             {
                 // Valid idTag => send request to charge point
 
-                Messages_OCPP20.RequestStartTransactionRequest requestStartTransactionRequest = new Messages_OCPP20.RequestStartTransactionRequest();
+                var requestStartTransactionRequest = new RequestStartTransactionRequest();
                 requestStartTransactionRequest.EvseId = connectorId;
                 requestStartTransactionRequest.IdToken = new IdTokenType();
                 requestStartTransactionRequest.IdToken.Type = IdTokenEnumType.ISO14443;
@@ -464,7 +439,7 @@ namespace OCPP.Core.Server
                 int.TryParse(urlConnectorId, out connectorId);
             }
 
-            Messages_OCPP20.RequestStopTransactionRequest requestStopTransactionRequest = new Messages_OCPP20.RequestStopTransactionRequest();
+            OCPP.Core.Server.Messages_OCPP20.RequestStopTransactionRequest requestStopTransactionRequest = new OCPP.Core.Server.Messages_OCPP20.RequestStopTransactionRequest();
             requestStopTransactionRequest.TransactionId = transactionId;
 
             logger.LogInformation("OCPPMiddleware.OCPP20 => RequestStopTransaction20: ChargePoint='{0}' / ConnectorId={1} / TransactionId='{2}'", chargePointStatus.Id, connectorId, transactionId);
@@ -502,13 +477,7 @@ namespace OCPP.Core.Server
 
         private async Task SendOcpp20Message(OCPPMessage msg, ILogger logger, ChargePointStatus chargePointStatus)
         {
-            // Send raw outgoing messages to extensions
-            _ = Task.Run(() =>
-            {
-                ProcessRawOutgoingMessageSinks(chargePointStatus.Protocol, chargePointStatus.Id, msg);
-            });
-
-            string ocppTextMessage = null;
+           string ocppTextMessage = null;
 
             if (string.IsNullOrEmpty(msg.ErrorCode))
             {
@@ -532,7 +501,7 @@ namespace OCPP.Core.Server
             if (string.IsNullOrEmpty(ocppTextMessage))
             {
                 // invalid message
-                ocppTextMessage = string.Format("[{0},\"{1}\",\"{2}\",\"{3}\",{4}]", "4", string.Empty, Messages_OCPP20.ErrorCodes.ProtocolError, string.Empty, "{}");
+                ocppTextMessage = string.Format("[{0},\"{1}\",\"{2}\",\"{3}\",{4}]", "4", string.Empty, OCPP.Core.Server.Messages_OCPP20.ErrorCodes.ProtocolError, string.Empty, "{}");
             }
 
             // write message (async) to dump directory

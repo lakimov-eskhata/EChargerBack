@@ -109,7 +109,6 @@ namespace Application.Common
                     Logger.LogTrace("UpdateConnectorStatus => Creating new DB-ConnectorStatus: ID={0} / Connector={1}", connectorStatus.ChargePointId, connectorStatus.ConnectorId);
 
                     await _dbContext.ConnectorStatuses.AddAsync(connectorStatus);
-                    await _dbContext.SaveChangesAsync();
                 }
 
                 if (!string.IsNullOrEmpty(status))
@@ -118,8 +117,6 @@ namespace Application.Common
                     
                     connectorStatus.LastStatus = status;
                     connectorStatus.LastStatusTime = dbTime;
-                    
-                    await _dbContext.SaveChangesAsync();
                 }
 
                 if (meter.HasValue)
@@ -129,8 +126,9 @@ namespace Application.Common
                     connectorStatus.LastMeter = meter.Value;
                     connectorStatus.LastMeterTime = dbTime;
                     
-                    await _dbContext.SaveChangesAsync();
                 }
+                
+                await _dbContext.SaveChangesAsync();
                 Logger.LogInformation("UpdateConnectorStatus => Save ConnectorStatus: ID={0} / Connector={1} / Status={2} / Meter={3}", connectorStatus.ChargePointId, connectorId, status, meter);
                 return true;
             }
@@ -221,12 +219,6 @@ namespace Application.Common
         /// <summary>
         /// Return UtcNow + 1 year
         /// </summary>
-        protected static DateTimeOffset MaxExpiryDate
-        {
-            get
-            {
-                return DateTime.UtcNow.Date.AddYears(1);
-            }
-        }
+        protected static DateTimeOffset MaxExpiryDate => DateTime.UtcNow.Date.AddYears(1);
     }
 }

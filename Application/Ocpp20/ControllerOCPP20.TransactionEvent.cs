@@ -1,46 +1,25 @@
-﻿/*
- * OCPP.Core - https://github.com/dallmann-consulting/OCPP.Core
- * Copyright (C) 2020-2025 dallmann consulting GmbH.
- * All Rights Reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
+﻿using Application.Common;
 using Application.Common.Interfaces;
 using Application.Common.Models;
-using ChargeTag = Domain.Entities.Station.ChargeTagEntity;
-using Transaction = Domain.Entities.Station.TransactionEntity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using OCPP.Core.Server.Messages_OCPP20;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using ChargeTag = Domain.Entities.Station.ChargeTagEntity;
+using Transaction = Domain.Entities.Station.TransactionEntity;
 
-namespace OCPP.Core.Server
+namespace Application.Ocpp20
 {
     public partial class ControllerOCPP20
     {
-        public async Task<string> HandleTransactionEvent(OCPPMessage msgIn, OCPPMessage msgOut, OCPPMiddleware ocppMiddleware)
+        public async Task<string> HandleTransactionEvent(OCPPMessage msgIn, OCPPMessage msgOut, Application.Common.Middleware.OCPPMiddleware ocppMiddleware)
         {
             string errorCode = null;
             TransactionEventResponse transactionEventResponse = new TransactionEventResponse();
             transactionEventResponse.IdTokenInfo = new IdTokenInfoType();
             transactionEventResponse.CustomData = new CustomDataType();
-            transactionEventResponse.CustomData.VendorId = VendorId;
+            transactionEventResponse.CustomData.VendorId = ControllerOCPP20.VendorId;
 
             int connectorId = 0;
             string msgLogText = string.Empty;
@@ -51,7 +30,7 @@ namespace OCPP.Core.Server
                 TransactionEventRequest transactionEventRequest = DeserializeMessage<TransactionEventRequest>(msgIn);
                 Logger.LogTrace("TransactionEvent => Message deserialized");
 
-                string idTag = CleanChargeTagId(transactionEventRequest.IdToken?.IdToken, Logger);
+                string idTag = OccpControllerBase.CleanChargeTagId(transactionEventRequest.IdToken?.IdToken, Logger);
                 connectorId = (transactionEventRequest.Evse != null) ? 
                                         transactionEventRequest.Evse.Id : 0;
 
@@ -73,7 +52,7 @@ namespace OCPP.Core.Server
 
                 if (connectorId > 0 && meterKWH >= 0)
                 {
-                    UpdateConnectorStatus(connectorId, null, null, meterKWH, meterTime);
+                    await UpdateConnectorStatus(connectorId, null, null, meterKWH, meterTime);
                     UpdateMemoryConnectorStatus(connectorId, meterKWH, meterTime.Value, currentChargeKW, stateOfCharge);
                 }
 
@@ -82,15 +61,15 @@ namespace OCPP.Core.Server
                     try
                     {
                         #region Start Transaction
-                        bool denyConcurrentTx = Configuration.GetValue<bool>("DenyConcurrentTx", false);
+                        bool denyConcurrentTx = ConfigurationBinder.GetValue<bool>(Configuration, "DenyConcurrentTx", false);
 
-                        transactionEventResponse.IdTokenInfo = await InternalAuthorize(idTag, ocppMiddleware, connectorId, AuthAction.StartTransaction, transactionEventRequest.TransactionInfo.TransactionId, string.Empty, denyConcurrentTx);
+                        transactionEventResponse.IdTokenInfo = await InternalAuthorize(idTag, AuthAction.StartTransaction, denyConcurrentTx);
 
                         Logger.LogInformation("StartTransaction => Charge tag='{0}' => Status: {1}", idTag, transactionEventResponse.IdTokenInfo.Status);
 
                         if (transactionEventResponse.IdTokenInfo.Status == AuthorizationStatusEnumType.Accepted)
                         {
-                            UpdateConnectorStatus(connectorId, ConnectorStatusEnum.Occupied.ToString(), meterTime, null, null);
+                            await UpdateConnectorStatus(connectorId, ConnectorStatusEnum.Occupied.ToString(), meterTime, null, null);
 
                             try
                             {
@@ -110,7 +89,7 @@ namespace OCPP.Core.Server
                             }
                             catch (Exception exp)
                             {
-                                Logger.LogError(exp, "StartTransaction => Exception writing transaction: chargepoint={0} / tag={1}", ChargePointStatus?.Id, idTag);
+                                Logger.LogError("StartTransaction => Exception writing transaction: chargepoint={0} / tag={1}", ChargePointStatus?.Id, idTag);
                                 errorCode = ErrorCodes.InternalError;
                             }
                         }
@@ -129,8 +108,8 @@ namespace OCPP.Core.Server
                     try
                     {
                         #region Update Transaction
-                        Transaction transaction = await _dbContext.Transactions
-                            .Where(t => t.Uid == transactionEventRequest.TransactionInfo.TransactionId)
+                        Transaction transaction = await Queryable
+                            .Where<Transaction>(_dbContext.Transactions, t => t.Uid == transactionEventRequest.TransactionInfo.TransactionId)
                             .OrderByDescending(t => t.TransactionId)
                             .FirstOrDefaultAsync();
 
@@ -167,8 +146,8 @@ namespace OCPP.Core.Server
                     {
                         #region End Transaction
 
-                        Transaction transaction = await _dbContext.Transactions
-                            .Where(t => t.Uid == transactionEventRequest.TransactionInfo.TransactionId)
+                        Transaction transaction = await Queryable
+                            .Where<Transaction>(_dbContext.Transactions, t => t.Uid == transactionEventRequest.TransactionInfo.TransactionId)
                             .OrderByDescending(t => t.TransactionId)
                             .FirstOrDefaultAsync();
 
@@ -185,7 +164,7 @@ namespace OCPP.Core.Server
                             }
                             else
                             {
-                                transactionEventResponse.IdTokenInfo = await InternalAuthorize(idTag, ocppMiddleware, connectorId, AuthAction.StopTransaction, transactionEventRequest.TransactionInfo.TransactionId, transaction.StartTagId, false);
+                                transactionEventResponse.IdTokenInfo = await InternalAuthorize(idTag, AuthAction.StopTransaction, false);
                             }
                         }
                         else
@@ -226,12 +205,12 @@ namespace OCPP.Core.Server
                                     if (!transaction.StartTagId.Equals(idTag, StringComparison.InvariantCultureIgnoreCase))
                                     {
                                         // tags are different => same group?
-                                        ChargeTag startTag = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == transaction.StartTagId);
+                                        ChargeTag startTag = await EntityFrameworkQueryableExtensions.FirstOrDefaultAsync<ChargeTag>(_dbContext.ChargeTags, x => x.TagId == transaction.StartTagId);
                                         if (startTag != null)
                                         {
                                             if (!string.Equals(startTag.ParentTagId, transactionEventResponse.IdTokenInfo.GroupIdToken?.IdToken, StringComparison.InvariantCultureIgnoreCase))
                                             {
-                                                Logger.LogInformation("EndTransaction => Start-Tag ('{0}') and End-Tag ('{1}') do not match: Invalid!", transaction.StartTagId, idTag);
+                                                Logger.LogInformation($"EndTransaction => Start-Tag ('{transaction.StartTagId}') and End-Tag ('{idTag}') do not match: Invalid!");
                                                 transactionEventResponse.IdTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
                                                 valid = false;
                                             }
@@ -351,7 +330,7 @@ namespace OCPP.Core.Server
                         }
                         else
                         {
-                            Logger.LogWarning("GetMeterValues => Charging: unexpected unit: '{0}' (Value={1})", sampleValue.UnitOfMeasure?.Unit, sampleValue.Value);
+                            Logger.LogWarning($"GetMeterValues => Charging: unexpected unit: '{sampleValue.UnitOfMeasure?.Unit}' (Value={sampleValue.Value})");
                         }
                     }
                     else if (sampleValue.Measurand == MeasurandEnumType.Energy_Active_Import_Register ||
@@ -363,7 +342,7 @@ namespace OCPP.Core.Server
                         if (sampleValue.UnitOfMeasure?.Unit == "Wh" ||
                             sampleValue.UnitOfMeasure?.Unit == "VAh" ||
                             sampleValue.UnitOfMeasure?.Unit == "varh" ||
-                            (sampleValue.UnitOfMeasure == null || sampleValue.UnitOfMeasure.Unit == null))
+                            sampleValue.UnitOfMeasure?.Unit == null)
                         {
                             Logger.LogTrace("GetMeterValues => Value: '{0:0.0}' Wh", meterKWH);
                             // convert Wh => kWh
@@ -378,7 +357,7 @@ namespace OCPP.Core.Server
                         }
                         else
                         {
-                            Logger.LogWarning("GetMeterValues => Value: unexpected unit: '{0}' (Value={1})", sampleValue.UnitOfMeasure?.Unit, sampleValue.Value);
+                            Logger.LogWarning($"GetMeterValues => Value: unexpected unit: '{sampleValue.UnitOfMeasure?.Unit}' (Value={sampleValue.Value})");
                         }
                         meterTime = meterValue.Timestamp;
                     }
@@ -395,37 +374,14 @@ namespace OCPP.Core.Server
         /// <summary>
         /// Authorization logic for reuseability
         /// </summary>
-        internal async Task<IdTokenInfoType> InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware, int connectorId, AuthAction authAction, string transactionUid, string transactionStartId, bool denyConcurrentTx)
+        internal async Task<IdTokenInfoType> InternalAuthorize(string idTag, AuthAction authAction, bool denyConcurrentTx)
         {
             IdTokenInfoType idTokenInfo = new IdTokenInfoType();
 
-            bool? externalAuthResult = null;
-            try
-            {
-                externalAuthResult = ocppMiddleware.ProcessExternalAuthorizations(authAction, idTag, ChargePointStatus.Id, connectorId, transactionUid, transactionStartId);
-            }
-            catch (Exception exp)
-            {
-                Logger.LogError(exp, "InternalAuthorize => Exception from external authorization (Action={0}, Tag={1}): {2}", authAction, idTag, exp.Message);
-            }
-
-            if (externalAuthResult.HasValue)
-            {
-                if (externalAuthResult.Value)
-                {
-                    idTokenInfo.Status = AuthorizationStatusEnumType.Accepted;
-                }
-                else
-                {
-                    idTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
-                }
-                Logger.LogInformation("InternalAuthorize => Extension auth. : Action={0}, Tag='{1}' => Status: {2}", authAction, idTag, idTokenInfo.Status);
-            }
-            else
-            {
+          
                 try
                 {
-                    ChargeTag ct = await _dbContext.ChargeTags.FirstOrDefaultAsync(x => x.TagId == idTag);
+                    var ct = await _dbContext.ChargeTags.AsNoTracking().FirstOrDefaultAsync(x => x.TagId == idTag);
                     if (ct != null)
                     {
                         if (!string.IsNullOrWhiteSpace(ct.ParentTagId))
@@ -448,7 +404,7 @@ namespace OCPP.Core.Server
                             if (denyConcurrentTx)
                             {
                                 // Check that no open transaction with this idTag exists
-                                Transaction tx = await _dbContext.Transactions
+                                var tx = await _dbContext.Transactions
                                     .Where(t => !t.StopTime.HasValue && t.StartTagId == ct.TagId)
                                     .OrderByDescending(t => t.TransactionId)
                                     .FirstOrDefaultAsync();
@@ -471,7 +427,7 @@ namespace OCPP.Core.Server
                     Logger.LogError(exp, "InternalAuthorize => Exception reading charge tag (action={0}, tag={1}): {2}", authAction, idTag, exp.Message);
                     idTokenInfo.Status = AuthorizationStatusEnumType.Invalid;
                 }
-            }
+            
 
             return idTokenInfo;
         }
