@@ -3,6 +3,9 @@ bin/
 obj/
 out/
 /Artifacts/
+/.idea/
+
+/Application/obj
 
 # VS / Rider / VS Code
 .vs/
