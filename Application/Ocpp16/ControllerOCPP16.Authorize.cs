@@ -42,7 +42,7 @@ namespace Application.Ocpp16
         /// <summary>
         /// Authorization logic for reuseability
         /// </summary>
-        internal async Task<IdTagInfo> InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware, int connectorId, AuthAction authAction, string transactionUid, string transactionStartId, bool denyConcurrentTx)
+        public async Task<IdTagInfo> InternalAuthorize(string idTag, OCPPMiddleware ocppMiddleware, int connectorId, AuthAction authAction, string transactionUid, string transactionStartId, bool denyConcurrentTx)
         {
             var idTagInfo = new IdTagInfo
             {
