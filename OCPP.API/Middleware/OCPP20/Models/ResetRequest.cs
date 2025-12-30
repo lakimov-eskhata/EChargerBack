@@ -1,6 +1,4 @@
-﻿using OCPP.API.Middleware.OCPP20.Models;
-
-namespace Application.Ocpp20.Messages_OCPP20
+﻿namespace OCPP.API.Middleware.OCPP20.Models
 {
 #pragma warning disable // Disable all warnings
 

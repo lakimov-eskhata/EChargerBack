@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Application.Common;
 
-// Common/MediatorHandler.cs
 public class MediatorHandler : IMediatorHandler
 {
     private readonly IServiceProvider _serviceProvider;
@@ -52,7 +51,6 @@ public class MediatorHandler : IMediatorHandler
     }
 }
 
-// Common/Interfaces/INotificationHandler.cs
 public interface INotificationHandler<in TNotification> where TNotification : INotification
 {
     Task Handle(TNotification notification, CancellationToken cancellationToken);

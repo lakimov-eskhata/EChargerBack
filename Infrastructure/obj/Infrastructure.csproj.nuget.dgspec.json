@@ -52,9 +52,21 @@
               "target": "Package",
               "version": "[12.0.0, )"
             },
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[9.0.8, )"
+            },
+            "Microsoft.Extensions.Configuration": {
+              "target": "Package",
+              "version": "[10.0.1, )"
+            },
+            "Microsoft.Extensions.Logging": {
+              "target": "Package",
+              "version": "[10.0.1, )"
+            },
             "Newtonsoft.Json": {
               "target": "Package",
-              "version": "[13.0.3, )"
+              "version": "[13.0.4, )"
             },
             "Newtonsoft.Json.Schema": {
               "target": "Package",
@@ -64,9 +76,9 @@
               "target": "Package",
               "version": "[6.1.0, )"
             },
-            "SimpleR.Ocpp": {
+            "Sieve": {
               "target": "Package",
-              "version": "[1.0.0, )"
+              "version": "[2.5.5, )"
             }
           },
           "imports": [
@@ -197,6 +209,12 @@
               "version": "[9.0.8, )"
             },
             "Microsoft.EntityFrameworkCore.Relational": {
+              "target": "Package",
+              "version": "[9.0.8, )"
+            },
+            "Microsoft.EntityFrameworkCore.Tools": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
               "target": "Package",
               "version": "[9.0.8, )"
             },

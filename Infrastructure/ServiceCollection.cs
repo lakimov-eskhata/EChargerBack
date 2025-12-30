@@ -1,4 +1,6 @@
-﻿using Infrastructure.Persistence;
+﻿using Application;
+using Application.Common.Interfaces;
+using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,16 +11,22 @@ public static class ServiceCollection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddApplication(configuration);
+        
         string postgresConnectionString = configuration.GetConnectionString("Postgres");
             
-        if (!string.IsNullOrWhiteSpace(postgresConnectionString))
-        {
-            services.AddDbContext<OCPPCoreContext>(options => 
-                options.UseNpgsql(postgresConnectionString, 
-                    b => b.MigrationsAssembly(typeof(OCPPCoreContext).Assembly.FullName)), ServiceLifetime.Transient);
-        }
+        // if (!string.IsNullOrWhiteSpace(postgresConnectionString))
+        // {
+        //     services.AddDbContext<OCPPCoreContext>(options => 
+        //         options.UseNpgsql(postgresConnectionString, 
+        //             b => b.MigrationsAssembly(typeof(OCPPCoreContext).Assembly.FullName)), ServiceLifetime.Transient);
+        // }
 
-        // services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>()!);
+        services.AddDbContext<ApplicationDbContext>(options =>
+            options.UseNpgsql(postgresConnectionString,
+                b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+        
+        services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>()!);
         return services;
     }
 }

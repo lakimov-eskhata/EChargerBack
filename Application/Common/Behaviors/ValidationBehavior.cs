@@ -1,11 +1,9 @@
-﻿using Application.Common.Interfaces;
+﻿using FluentValidation;
+using Application.Common.Interfaces;
 
 namespace Application.Common.Behaviors;
 
-// Common/Behaviors/ValidationBehavior.cs
-using FluentValidation;
-
-public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> 
+public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     private readonly IEnumerable<IValidator<TRequest>> _validators;
@@ -20,24 +18,20 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
         if (_validators.Any())
         {
             var context = new ValidationContext<TRequest>(request);
-
             var validationResults = await Task.WhenAll(
                 _validators.Select(v => v.ValidateAsync(context, cancellationToken)));
+            var failures = validationResults.SelectMany(r => r.Errors).Where(f => f != null).ToList();
 
-            var failures = validationResults
-                .Where(r => r.Errors.Any())
-                .SelectMany(r => r.Errors)
-                .ToList();
-
-            if (failures.Any())
+            if (failures.Count != 0)
+            {
                 throw new ValidationException(failures);
+            }
         }
 
         return await next();
     }
 }
 
-// Common/Exceptions/ValidationException.cs
 public class ValidationException : Exception
 {
     public ValidationException(IEnumerable<FluentValidation.Results.ValidationFailure> failures)

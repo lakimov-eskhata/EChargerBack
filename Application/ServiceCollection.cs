@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using Application.Common;
 using Application.Common.Behaviors;
+using Application.Common.Interfaces;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,15 +12,15 @@ public static class ServiceCollection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
     {
-        // // Add MediatR, AutoMapper, Validators
-        // services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(Assembly.GetExecutingAssembly()));
-        // services.AddAutoMapper(Assembly.GetExecutingAssembly());
+        services.AddScoped<IMediatorHandler, MediatorHandler>();
+
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
-
+        
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-     
-        services.AddSingleton<ChargePointConnectionStorage>();
-
+        
+        // services.AddScoped<SieveProcessor, SieveProcessorExtension>();
+        // services.Configure<SieveOptions>(_ => configuration.GetSection("Sieve"));
+        
         return services;
     }
 }

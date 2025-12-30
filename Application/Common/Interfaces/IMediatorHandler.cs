@@ -1,27 +1,29 @@
 ﻿namespace Application.Common.Interfaces;
 
-// Common/Interfaces/IMediatorHandler.cs
+// Базовые интерфейсы для CQRS
+public interface IRequest<TResponse> { }
+    
+public interface IRequestHandler<TRequest, TResponse> where TRequest : IRequest<TResponse>
+{
+    Task<TResponse> Handle(TRequest request, CancellationToken cancellationToken);
+}
+    
+public interface INotification { }
+    
+public interface INotificationHandler<TNotification> where TNotification : INotification
+{
+    Task Handle(TNotification notification, CancellationToken cancellationToken);
+}
+    
+public interface IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
+{
+    Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken);
+}
+    
+public delegate Task<TResponse> RequestHandlerDelegate<TResponse>();
+    
 public interface IMediatorHandler
 {
     Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default);
     Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default) where TNotification : INotification;
 }
-
-// Common/Interfaces/IRequest.cs
-public interface IRequest<TResponse> { }
-
-public interface IRequest : IRequest<Unit> { }
-
-public record Unit;
-
-// Common/Interfaces/INotification.cs
-public interface INotification { }
-
-// Common/Interfaces/IRequestHandler.cs
-public interface IRequestHandler<in TRequest, TResponse> where TRequest : IRequest<TResponse>
-{
-    Task<TResponse> Handle(TRequest request, CancellationToken cancellationToken);
-}
-
-public interface IRequestHandler<in TRequest> : IRequestHandler<TRequest, Unit> where TRequest : IRequest<Unit>
-{ }

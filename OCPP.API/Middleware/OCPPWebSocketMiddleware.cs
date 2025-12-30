@@ -1,52 +1,83 @@
-﻿namespace OCPP.API.Middleware;
+﻿using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace OCPP.API.Middleware;
 
 public class OCPPWebSocketMiddleware
-{
-    private readonly RequestDelegate _next;
-    private readonly IOCPPMiddlewareFactory _middlewareFactory;
-        
-    public OCPPWebSocketMiddleware(
-        RequestDelegate next,
-        IOCPPMiddlewareFactory middlewareFactory)
     {
-        _next = next;
-        _middlewareFactory = middlewareFactory;
-    }
+        private readonly RequestDelegate _next;
+        private readonly IOCPPMiddlewareFactory _middlewareFactory;
+        private readonly ILogger<OCPPWebSocketMiddleware> _logger;
         
-    public async Task InvokeAsync(HttpContext context)
-    {
-        if (context.WebSockets.IsWebSocketRequest && 
-            context.Request.Path.StartsWithSegments("/ocpp"))
+        public OCPPWebSocketMiddleware(
+            RequestDelegate next,
+            IOCPPMiddlewareFactory middlewareFactory,
+            ILogger<OCPPWebSocketMiddleware> logger)
         {
-            // Определяем версию OCPP
-            var protocolVersion = DetermineProtocolVersion(context);
-                
-            // Получаем соответствующий middleware
-            var ocppMiddleware = _middlewareFactory.GetMiddleware(protocolVersion);
-                
-            // Принимаем WebSocket соединение
-            var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                
-            // Обрабатываем соединение
-            await ocppMiddleware.ProcessWebSocketAsync(context, webSocket);
+            _next = next;
+            _middlewareFactory = middlewareFactory;
+            _logger = logger;
         }
-        else
-        {
-            await _next(context);
-        }
-    }
         
-    private string DetermineProtocolVersion(HttpContext context)
-    {
-        // Приоритет определения версии:
-        // 1. Из query string: ?ocppVersion=2.0
-        // 2. Из заголовков: OCPP-Version
-        // 3. Из subprotocol WebSocket
-        // 4. По умолчанию: 1.6
+        public async Task InvokeAsync(HttpContext context)
+        {
+            if (IsOCPPWebSocketRequest(context))
+            {
+                await HandleOCPPWebSocketAsync(context);
+            }
+            else
+            {
+                await _next(context);
+            }
+        }
+        
+        private bool IsOCPPWebSocketRequest(HttpContext context)
+        {
+            return context.WebSockets.IsWebSocketRequest &&
+                   context.Request.Path.StartsWithSegments("/ocpp");
+        }
+        
+        private async Task HandleOCPPWebSocketAsync(HttpContext context)
+        {
+            _logger.LogDebug(
+                "OCPP WebSocket request: {Path}, Subprotocols: {Subprotocols}",
+                context.Request.Path,
+                string.Join(", ", context.WebSockets.WebSocketRequestedProtocols ?? Array.Empty<string>()));
             
-        return context.Request.Query["ocppVersion"].ToString()
-               ?? context.Request.Headers["OCPP-Version"].ToString()
-               ?? context.WebSockets.WebSocketRequestedProtocols?.FirstOrDefault()
-               ?? "1.6";
+            try
+            {
+                // Создаем middleware через фабрику
+                // var middlewareFactory = context.RequestServices.GetRequiredService<IOCPPMiddlewareFactory>();
+                
+                var middleware = await _middlewareFactory.CreateAsync(context);
+
+                // Принимаем WebSocket соединение с указанием поддерживаемых протоколов
+                var webSocket = await context.WebSockets.AcceptWebSocketAsync(middleware.ProtocolVersion);
+                
+                // Обрабатываем соединение
+                await middleware.ProcessWebSocketAsync(context, webSocket);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling OCPP WebSocket connection");
+                
+                if (context.WebSockets.IsWebSocketRequest)
+                {
+                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                }
+            }
+        }
     }
-}
+    
+    // Extension method для регистрации
+    public static class OCPPWebSocketMiddlewareExtensions
+    {
+        public static IApplicationBuilder UseOCPPWebSockets(this IApplicationBuilder builder)
+        {
+            return builder.UseMiddleware<OCPPWebSocketMiddleware>();
+        }
+    }

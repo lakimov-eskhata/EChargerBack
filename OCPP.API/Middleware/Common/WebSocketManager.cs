@@ -1,69 +1,90 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
-using Newtonsoft.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace OCPP.API.Middleware.Common;
 
 public class WebSocketConnectionManager
     {
-        private readonly ConcurrentDictionary<string, ChargePointConnection> _connections = new();
+        private readonly ConcurrentDictionary<string, WebSocket> _sockets = new();
+        private readonly ConcurrentDictionary<string, string> _protocols = new();
         private readonly ILogger<WebSocketConnectionManager> _logger;
-        private readonly Timer _cleanupTimer;
         
         public WebSocketConnectionManager(ILogger<WebSocketConnectionManager> logger)
         {
             _logger = logger;
-            
-            // Таймер для очистки мертвых соединений
-            _cleanupTimer = new Timer(CleanupDeadConnections, null, 
-                TimeSpan.FromMinutes(5), 
-                TimeSpan.FromMinutes(5));
         }
         
-        public void RegisterConnection(string chargePointId, WebSocket webSocket, string protocolVersion)
+        public void AddSocket(string chargePointId, WebSocket socket, string protocolVersion)
         {
-            var connection = new ChargePointConnection
+            _sockets[chargePointId] = socket;
+            _protocols[chargePointId] = protocolVersion;
+            
+            _logger.LogInformation($"Socket added for {chargePointId} (v{protocolVersion}). Total: {_sockets.Count}");
+        }
+        
+        public WebSocket GetSocket(string chargePointId)
+        {
+            _sockets.TryGetValue(chargePointId, out var socket);
+            return socket;
+        }
+        
+        public async Task RemoveSocketAsync(string chargePointId)
+        {
+            if (_sockets.TryRemove(chargePointId, out var socket))
             {
-                WebSocket = webSocket,
-                ProtocolVersion = protocolVersion,
-                ConnectedAt = DateTime.UtcNow,
-                LastActivity = DateTime.UtcNow,
-                IsActive = true
-            };
-            
-            _connections[chargePointId] = connection;
-            
-            _logger.LogInformation($"Charge point {chargePointId} (v{protocolVersion}) registered. Total connections: {_connections.Count}");
+                if (socket.State == WebSocketState.Open)
+                {
+                    await socket.CloseAsync(
+                        WebSocketCloseStatus.NormalClosure,
+                        "Connection removed",
+                        CancellationToken.None);
+                }
+                
+                _protocols.TryRemove(chargePointId, out _);
+                _logger.LogInformation($"Socket removed for {chargePointId}. Total: {_sockets.Count}");
+            }
+        }
+        
+        public IEnumerable<string> GetAllChargePointIds()
+        {
+            return _sockets.Keys;
+        }
+        
+        public Dictionary<string, string> GetAllConnections()
+        {
+            return _protocols.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        }
+        
+        public bool IsConnected(string chargePointId)
+        {
+            return _sockets.ContainsKey(chargePointId) && 
+                   _sockets[chargePointId].State == WebSocketState.Open;
         }
         
         public async Task SendMessageAsync(string chargePointId, string message)
         {
-            if (_connections.TryGetValue(chargePointId, out var connection) && 
-                connection.WebSocket.State == WebSocketState.Open)
+            if (_sockets.TryGetValue(chargePointId, out var socket) && 
+                socket.State == WebSocketState.Open)
             {
-                try
-                {
-                    var buffer = Encoding.UTF8.GetBytes(message);
-                    await connection.WebSocket.SendAsync(
-                        new ArraySegment<byte>(buffer),
-                        WebSocketMessageType.Text,
-                        true,
-                        CancellationToken.None);
-                    
-                    connection.LastActivity = DateTime.UtcNow;
-                    
-                    _logger.LogDebug($"Message sent to {chargePointId}");
-                }
-                catch (WebSocketException ex)
-                {
-                    _logger.LogWarning(ex, $"Failed to send message to {chargePointId}");
-                    await RemoveConnectionAsync(chargePointId);
-                }
+                var buffer = Encoding.UTF8.GetBytes(message);
+                await socket.SendAsync(
+                    new ArraySegment<byte>(buffer),
+                    WebSocketMessageType.Text,
+                    true,
+                    CancellationToken.None);
+                
+                _logger.LogDebug($"Message sent to {chargePointId}");
             }
             else
             {
-                _logger.LogWarning($"Charge point {chargePointId} not found or not connected");
+                _logger.LogWarning($"Cannot send message to {chargePointId}: socket not found or closed");
             }
         }
         
@@ -71,146 +92,16 @@ public class WebSocketConnectionManager
         {
             var tasks = new List<Task>();
             
-            foreach (var kvp in _connections)
+            foreach (var kvp in _sockets)
             {
-                if ((protocolVersion == null || kvp.Value.ProtocolVersion == protocolVersion) &&
-                    kvp.Value.WebSocket.State == WebSocketState.Open)
+                if (protocolVersion == null || 
+                    (_protocols.TryGetValue(kvp.Key, out var version) && version == protocolVersion))
                 {
                     tasks.Add(SendMessageAsync(kvp.Key, message));
                 }
             }
             
             await Task.WhenAll(tasks);
-            _logger.LogInformation($"Broadcasted message to {tasks.Count} charge points");
-        }
-        
-        public async Task SendCommandAsync(string chargePointId, string command, object payload)
-        {
-            var message = new
-            {
-                jsonrpc = "2.0",
-                id = Guid.NewGuid().ToString(),
-                method = command,
-                @params = payload
-            };
-            
-            var json = JsonConvert.SerializeObject(message);
-            await SendMessageAsync(chargePointId, json);
-            
-            _logger.LogInformation($"Command {command} sent to {chargePointId}");
-        }
-        
-        public async Task<bool> RemoteStartTransactionAsync(string chargePointId, int connectorId, string idTag)
-        {
-            var command = _connections[chargePointId].ProtocolVersion switch
-            {
-                "1.6" => "RemoteStartTransaction",
-                "2.0" or "2.1" => "RequestStartTransaction",
-                _ => throw new NotSupportedException($"Protocol version not supported")
-            };
-
-            object payload;
-            switch (_connections[chargePointId].ProtocolVersion)
-            {
-                case "1.6":
-                    payload = new { connectorId = connectorId, idTag = idTag };
-                    break;
-                case "2.0" or "2.1":
-                    payload = new { evseId = connectorId, idToken = new { idToken = idTag, type = "ISO14443" } };
-                    break;
-                default:
-                    throw new NotSupportedException();
-            }
-
-            await SendCommandAsync(chargePointId, command, payload);
-            return true;
-        }
-        
-        public async Task RemoveConnectionAsync(string chargePointId)
-        {
-            if (_connections.TryRemove(chargePointId, out var connection))
-            {
-                try
-                {
-                    if (connection.WebSocket.State == WebSocketState.Open)
-                    {
-                        await connection.WebSocket.CloseAsync(
-                            WebSocketCloseStatus.NormalClosure,
-                            "Connection removed",
-                            CancellationToken.None);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, $"Error while closing WebSocket for {chargePointId}");
-                }
-                
-                _logger.LogInformation($"Charge point {chargePointId} removed. Total connections: {_connections.Count}");
-            }
-        }
-        
-        public IEnumerable<ChargePointInfo> GetConnectedChargePoints()
-        {
-            return _connections.Select(kvp => new ChargePointInfo
-            {
-                ChargePointId = kvp.Key,
-                ProtocolVersion = kvp.Value.ProtocolVersion,
-                ConnectedAt = kvp.Value.ConnectedAt,
-                LastActivity = kvp.Value.LastActivity,
-                IsActive = kvp.Value.IsActive,
-                WebSocketState = kvp.Value.WebSocket.State.ToString()
-            });
-        }
-        
-        public bool IsConnected(string chargePointId)
-        {
-            return _connections.TryGetValue(chargePointId, out var connection) &&
-                   connection.WebSocket.State == WebSocketState.Open;
-        }
-        
-        public string GetProtocolVersion(string chargePointId)
-        {
-            return _connections.TryGetValue(chargePointId, out var connection) 
-                ? connection.ProtocolVersion 
-                : null;
-        }
-        
-        private void CleanupDeadConnections(object state)
-        {
-            var deadConnections = _connections
-                .Where(kvp => 
-                    kvp.Value.WebSocket.State != WebSocketState.Open ||
-                    (DateTime.UtcNow - kvp.Value.LastActivity).TotalMinutes > 30)
-                .Select(kvp => kvp.Key)
-                .ToList();
-            
-            foreach (var chargePointId in deadConnections)
-            {
-                _ = RemoveConnectionAsync(chargePointId);
-            }
-            
-            if (deadConnections.Any())
-            {
-                _logger.LogInformation($"Cleaned up {deadConnections.Count} dead connections");
-            }
-        }
-        
-        private class ChargePointConnection
-        {
-            public WebSocket WebSocket { get; set; }
-            public string ProtocolVersion { get; set; }
-            public DateTime ConnectedAt { get; set; }
-            public DateTime LastActivity { get; set; }
-            public bool IsActive { get; set; }
-        }
-        
-        public class ChargePointInfo
-        {
-            public string ChargePointId { get; set; }
-            public string ProtocolVersion { get; set; }
-            public DateTime ConnectedAt { get; set; }
-            public DateTime LastActivity { get; set; }
-            public bool IsActive { get; set; }
-            public string WebSocketState { get; set; }
+            _logger.LogInformation($"Broadcasted to {tasks.Count} charge points");
         }
     }
