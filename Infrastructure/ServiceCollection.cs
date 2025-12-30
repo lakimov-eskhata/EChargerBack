@@ -1,6 +1,8 @@
 ﻿using Application;
 using Application.Common.Interfaces;
+using Application.Interfaces.Services;
 using Infrastructure.Persistence;
+using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,8 +27,10 @@ public static class ServiceCollection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(postgresConnectionString,
                 b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
-        
+
         services.AddScoped<IApplicationDbContext>(provider => provider.GetService<ApplicationDbContext>()!);
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<DatabaseSeeder>();
         return services;
     }
 }

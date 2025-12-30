@@ -1,23 +1,28 @@
-using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Application;
 using Infrastructure;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using OCPP.API;
+using Infrastructure.Services;
 using OCPP.API.Extensions;
 using OCPP.API.Middleware;
+using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
+// Configure Serilog with SEQ
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "OCPP.API")
+    .WriteTo.Console()
+    .WriteTo.Seq("http://localhost:5341")
+    .CreateLogger();
 
-builder.Logging.AddConsole();
+builder.Host.UseSerilog();
 
 
 // Add services
@@ -35,6 +40,13 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddOCPPServices();
 
 var app = builder.Build();
+
+// Seed database
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await seeder.SeedAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

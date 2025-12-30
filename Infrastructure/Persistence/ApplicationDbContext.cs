@@ -1,5 +1,6 @@
 ﻿using Application.Common.Interfaces;
 using Domain.Entities.Station;
+using Domain.Entities.User;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
@@ -27,14 +28,79 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     // public DbSet<HistoryChargesEntity> HistoryCharges { get; set; } = null!;
     // public DbSet<DynamicTrafficPriceEntity> DynamicTrafficPrices { get; set; } = null!;
 
+    public DbSet<StationEntity> Stations { get; set; }
     public DbSet<ChargePointEntity> ChargePoints { get; set; }
     public DbSet<ConnectorEntity> Connectors { get; set; }
     public DbSet<MeterValueEntity> MeterValues { get; set; }
     public DbSet<TransactionEntity> Transactions { get; set; }
 
+    // User management
+    public DbSet<UserEntity> Users { get; set; }
+    public DbSet<CompanyEntity> Companies { get; set; }
+    public DbSet<RoleEntity> Roles { get; set; }
+    public DbSet<PermissionEntity> Permissions { get; set; }
+    public DbSet<UserRoleEntity> UserRoles { get; set; }
+    public DbSet<RolePermissionEntity> RolePermissions { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Station configuration
+        modelBuilder.Entity<StationEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.CompanyId);
+            entity.HasIndex(e => new { e.Latitude, e.Longitude });
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.Address)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.City)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Region)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.PostalCode)
+                .HasMaxLength(20);
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .HasDefaultValue("Active");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .ValueGeneratedOnAddOrUpdate();
+
+            entity.Property(e => e.Latitude)
+                .HasPrecision(10, 8);
+
+            entity.Property(e => e.Longitude)
+                .HasPrecision(11, 8);
+
+            // Relationships
+            entity.HasOne(e => e.Company)
+                .WithMany()
+                .HasForeignKey(e => e.CompanyId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(e => e.ChargePoints)
+                .WithOne(e => e.Station)
+                .HasForeignKey(e => e.StationId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
 
         // ChargePoint configuration
         modelBuilder.Entity<ChargePointEntity>(entity =>
@@ -92,6 +158,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .ValueGeneratedOnAddOrUpdate();
 
             // Relationships
+            entity.HasOne(e => e.Station)
+                .WithMany(e => e.ChargePoints)
+                .HasForeignKey(e => e.StationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasMany(e => e.Connectors)
                 .WithOne(e => e.ChargePoint)
                 .HasForeignKey(e => e.ChargePointId)
@@ -203,6 +274,162 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasOne(e => e.Transaction)
                 .WithMany(e => e.MeterValues)
                 .HasForeignKey(e => e.TransactionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Company configuration
+        modelBuilder.Entity<CompanyEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.ContactEmail);
+            entity.HasIndex(e => e.IsActive);
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.ContactEmail)
+                .HasMaxLength(200);
+
+            entity.Property(e => e.ContactPhone)
+                .HasMaxLength(50);
+
+            entity.Property(e => e.Address)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.Balance)
+                .HasPrecision(18, 2);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .ValueGeneratedOnAddOrUpdate();
+
+            // Relationships
+            entity.HasMany(e => e.Users)
+                .WithOne(e => e.Company)
+                .HasForeignKey(e => e.CompanyId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // User configuration
+        modelBuilder.Entity<UserEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.CompanyId);
+
+            entity.Property(e => e.Email)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.FirstName)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.LastName)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Phone)
+                .HasMaxLength(50);
+
+            entity.Property(e => e.PasswordHash)
+                .IsRequired();
+
+            entity.Property(e => e.PasswordSalt)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .ValueGeneratedOnAddOrUpdate();
+
+            // Relationships
+            entity.HasOne(e => e.Company)
+                .WithMany(e => e.Users)
+                .HasForeignKey(e => e.CompanyId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Role configuration
+        modelBuilder.Entity<RoleEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Name).IsUnique();
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // Permission configuration
+        modelBuilder.Entity<PermissionEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.Resource, e.Action }).IsUnique();
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.Resource)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Action)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // UserRole configuration (many-to-many)
+        modelBuilder.Entity<UserRoleEntity>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.RoleId });
+
+            entity.HasOne(e => e.User)
+                .WithMany(e => e.UserRoles)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Role)
+                .WithMany(e => e.UserRoles)
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // RolePermission configuration (many-to-many)
+        modelBuilder.Entity<RolePermissionEntity>(entity =>
+        {
+            entity.HasKey(e => new { e.RoleId, e.PermissionId });
+
+            entity.HasOne(e => e.Role)
+                .WithMany(e => e.RolePermissions)
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Permission)
+                .WithMany(e => e.RolePermissions)
+                .HasForeignKey(e => e.PermissionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

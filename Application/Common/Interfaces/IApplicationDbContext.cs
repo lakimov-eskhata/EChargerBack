@@ -1,4 +1,5 @@
 ﻿using Domain.Entities.Station;
+using Domain.Entities.User;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -29,10 +30,19 @@ public interface IApplicationDbContext
     // public DbSet<HistoryChargesEntity> HistoryCharges { get; set; }
     // public DbSet<DynamicTrafficPriceEntity> DynamicTrafficPrices { get; set; }
     
+    public DbSet<StationEntity> Stations { get; set; }
     public DbSet<ChargePointEntity> ChargePoints { get; set; }
     public DbSet<ConnectorEntity> Connectors { get; set; }
     public DbSet<MeterValueEntity> MeterValues { get; set; }
     public DbSet<TransactionEntity> Transactions { get; set; }
+
+    // User management
+    public DbSet<UserEntity> Users { get; set; }
+    public DbSet<CompanyEntity> Companies { get; set; }
+    public DbSet<RoleEntity> Roles { get; set; }
+    public DbSet<PermissionEntity> Permissions { get; set; }
+    public DbSet<UserRoleEntity> UserRoles { get; set; }
+    public DbSet<RolePermissionEntity> RolePermissions { get; set; }
     
     EntityEntry Entry(object entity);
 
